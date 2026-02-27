@@ -17,31 +17,38 @@ const (
 	ansiGray    = "\033[0;37m"
 	ansiMagenta = "\033[0;35m"
 	ansiHeader  = "\033[48;5;153m\033[1;34m"
+
+	homeRowWidth = 54
 )
+
+type styledWord struct {
+	text  string
+	color string
+}
 
 // RenderHomePosts renders the terminal homepage list.
 func RenderHomePosts(w io.Writer, posts []domain.Post) error {
-	if _, err := fmt.Fprintf(w, "%s%s%s\n", ansiHeader, renderHomeHeader("recently posted", 72), ansiReset); err != nil {
+	if _, err := fmt.Fprintf(w, "%s%s%s\n", ansiHeader, renderHomeHeader("recently posted", homeRowWidth), ansiReset); err != nil {
 		return err
 	}
 
 	for _, post := range posts {
 		title := formatPostTitle(post)
-		photo := ""
-		if post.HasImage {
-			photo = " 📷"
-		}
 		timeAgo := formatRelativeTime(postTimestamp(post), time.Now())
 
-		if _, err := fmt.Fprintf(
-			w,
-			"%s%s%s %s%s%s%s %s%s%s\n",
-			ansiBlue, title, ansiReset,
-			ansiGray, post.Email, ansiReset,
-			photo,
-			ansiMagenta, timeAgo, ansiReset,
-		); err != nil {
-			return err
+		words := make([]styledWord, 0, 16)
+		words = append(words, splitStyledWords(title, ansiBlue)...)
+		words = append(words, splitStyledWords(post.Email, ansiGray)...)
+		if post.HasImage {
+			words = append(words, styledWord{text: "📷"})
+		}
+		words = append(words, splitStyledWords(timeAgo, ansiMagenta)...)
+
+		lines := wrapStyledWords(words, homeRowWidth)
+		for _, lineWords := range lines {
+			if _, err := fmt.Fprintln(w, renderStyledLine(lineWords)); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -152,4 +159,88 @@ func formatRelativeTime(from, now time.Time) string {
 		return "about 1 day"
 	}
 	return fmt.Sprintf("about %d days", days)
+}
+
+func splitStyledWords(text, color string) []styledWord {
+	fields := strings.Fields(strings.TrimSpace(text))
+	words := make([]styledWord, 0, len(fields))
+	for _, word := range fields {
+		words = append(words, styledWord{text: word, color: color})
+	}
+	return words
+}
+
+func wrapStyledWords(words []styledWord, width int) [][]styledWord {
+	if width <= 0 {
+		return [][]styledWord{words}
+	}
+	if len(words) == 0 {
+		return [][]styledWord{{}}
+	}
+
+	lines := make([][]styledWord, 0, len(words))
+	current := make([]styledWord, 0, 8)
+	currentWidth := 0
+
+	for _, word := range words {
+		wordLen := len([]rune(word.text))
+		if wordLen > width {
+			if len(current) > 0 {
+				lines = append(lines, current)
+				current = make([]styledWord, 0, 8)
+				currentWidth = 0
+			}
+
+			runes := []rune(word.text)
+			for len(runes) > width {
+				chunk := string(runes[:width])
+				lines = append(lines, []styledWord{{text: chunk, color: word.color}})
+				runes = runes[width:]
+			}
+			if len(runes) > 0 {
+				current = append(current, styledWord{text: string(runes), color: word.color})
+				currentWidth = len(runes)
+			}
+			continue
+		}
+
+		needed := wordLen
+		if len(current) > 0 {
+			needed++
+		}
+		if currentWidth+needed <= width {
+			current = append(current, word)
+			currentWidth += needed
+			continue
+		}
+
+		lines = append(lines, current)
+		current = []styledWord{word}
+		currentWidth = wordLen
+	}
+
+	if len(current) > 0 {
+		lines = append(lines, current)
+	}
+	return lines
+}
+
+func renderStyledLine(words []styledWord) string {
+	if len(words) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, word := range words {
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		if word.color != "" {
+			b.WriteString(word.color)
+			b.WriteString(word.text)
+			b.WriteString(ansiReset)
+		} else {
+			b.WriteString(word.text)
+		}
+	}
+	return b.String()
 }

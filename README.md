@@ -7,7 +7,7 @@ A university marketplace CLI prototype. Production stack: Supabase + Next.js.
 ```bash
 go run . version              # → v0.1.0
 go run . listings             # → JSON list of seed data (no DB needed)
-go run . serve                # → preview server at http://localhost:8080
+go run . serve                # → preview server at http://localhost:8080/api/listings http://localhost:8080/api/health
 curl localhost:8080/api/listings  # → JSON response
 ```
 

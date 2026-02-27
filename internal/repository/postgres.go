@@ -3,9 +3,9 @@ package repository
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +18,8 @@ type Postgres struct {
 }
 
 const maxRecentActivePosts = 50
+const fieldSeparator = "\x1f"
+const recordSeparator = "\x1e"
 
 // NewPostgres validates repository configuration.
 func NewPostgres(databaseURL string) (*Postgres, error) {
@@ -32,64 +34,22 @@ func (r *Postgres) Close() error {
 	return nil
 }
 
-type postQueryRow struct {
-	ID            int64     `json:"id"`
-	CategoryID    int64     `json:"category_id"`
-	SubcategoryID int64     `json:"subcategory_id"`
-	Email         string    `json:"email"`
-	Name          string    `json:"name"`
-	Status        int       `json:"status"`
-	TimePosted    int64     `json:"time_posted"`
-	TimePostedAt  time.Time `json:"time_posted_at"`
-	Price         float64   `json:"price"`
-	HasPrice      bool      `json:"has_price"`
-	HasImage      bool      `json:"has_image"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-}
-
 // ListRecentActivePosts returns status=1 posts sorted by newest first.
 func (r *Postgres) ListRecentActivePosts(ctx context.Context, limit int) ([]domain.Post, error) {
-	const query = `
-SELECT
-	row_to_json(t)::text
-FROM (
-	SELECT
-		id,
-		COALESCE(category_id, 0) AS category_id,
-		COALESCE(subcategory_id, 0) AS subcategory_id,
-		email,
-		COALESCE(name, '') AS name,
-		status,
-		COALESCE(time_posted, 0) AS time_posted,
-		time_posted_at,
-		COALESCE(price, 0)::float8 AS price,
-		(price IS NOT NULL) AS has_price,
-		(
-			COALESCE(photo1_file_name, '') <> '' OR
-			COALESCE(photo2_file_name, '') <> '' OR
-			COALESCE(photo3_file_name, '') <> '' OR
-			COALESCE(photo4_file_name, '') <> '' OR
-			COALESCE(image_source1, '') <> '' OR
-			COALESCE(image_source2, '') <> '' OR
-			COALESCE(image_source3, '') <> '' OR
-			COALESCE(image_source4, '') <> ''
-		) AS has_image,
-		COALESCE(created_at, now()) AS created_at,
-		COALESCE(updated_at, created_at, now()) AS updated_at
-	FROM public.post
-	WHERE status = 1
-	ORDER BY time_posted DESC NULLS LAST, id DESC
-	LIMIT 50
-) t
-`
+	limit = clampRecentLimit(limit)
+	query := buildRecentActivePostsQuery(limit)
 
 	command := exec.CommandContext(
 		ctx,
 		"psql",
 		r.databaseURL,
+		"-X",
+		"-q",
+		"-A",
+		"-t",
+		"-F", fieldSeparator,
+		"-R", recordSeparator,
 		"-v", "ON_ERROR_STOP=1",
-		"-At",
 		"-c", query,
 	)
 
@@ -106,47 +66,154 @@ FROM (
 		return nil, fmt.Errorf("running post query: %w (%s)", err, errText)
 	}
 
-	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
-	if len(lines) == 1 && strings.TrimSpace(lines[0]) == "" {
+	posts, err := parseRecentActivePosts(stdout.String())
+	if err != nil {
+		return nil, fmt.Errorf("parsing post rows: %w", err)
+	}
+	if len(posts) > limit {
+		return posts[:limit], nil
+	}
+	return posts, nil
+}
+
+func clampRecentLimit(limit int) int {
+	if limit <= 0 || limit > maxRecentActivePosts {
+		return maxRecentActivePosts
+	}
+	return limit
+}
+
+func buildRecentActivePostsQuery(limit int) string {
+	return fmt.Sprintf(`
+SELECT
+	COALESCE(id, 0),
+	COALESCE(email, ''),
+	REPLACE(REPLACE(COALESCE(name, ''), CHR(30), ' '), CHR(31), ' '),
+	COALESCE(status, 0),
+	COALESCE(time_posted, 0),
+	COALESCE(EXTRACT(EPOCH FROM time_posted_at)::bigint, 0),
+	COALESCE(price::float8, 0),
+	(price IS NOT NULL),
+	(
+		COALESCE(photo1_file_name, '') <> '' OR
+		COALESCE(photo2_file_name, '') <> '' OR
+		COALESCE(photo3_file_name, '') <> '' OR
+		COALESCE(photo4_file_name, '') <> '' OR
+		COALESCE(image_source1, '') <> '' OR
+		COALESCE(image_source2, '') <> '' OR
+		COALESCE(image_source3, '') <> '' OR
+		COALESCE(image_source4, '') <> ''
+	)
+FROM public.post
+WHERE status = 1
+ORDER BY time_posted DESC NULLS LAST, id DESC
+LIMIT %d
+`, limit)
+}
+
+func parseRecentActivePosts(raw string) ([]domain.Post, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
 		return []domain.Post{}, nil
 	}
 
-	posts := make([]domain.Post, 0, len(lines))
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
+	records := strings.Split(raw, recordSeparator)
+	posts := make([]domain.Post, 0, len(records))
+	for _, record := range records {
+		record = strings.TrimSpace(record)
+		if record == "" {
 			continue
 		}
 
-		var row postQueryRow
-		if err := json.Unmarshal([]byte(line), &row); err != nil {
-			return nil, fmt.Errorf("decoding post row: %w", err)
+		fields := strings.Split(record, fieldSeparator)
+		if len(fields) != 9 {
+			return nil, fmt.Errorf("expected 9 fields, got %d", len(fields))
+		}
+
+		id, err := parseInt64Field(fields[0])
+		if err != nil {
+			return nil, fmt.Errorf("id: %w", err)
+		}
+		status64, err := parseInt64Field(fields[3])
+		if err != nil {
+			return nil, fmt.Errorf("status: %w", err)
+		}
+		timePosted, err := parseInt64Field(fields[4])
+		if err != nil {
+			return nil, fmt.Errorf("time_posted: %w", err)
+		}
+		timePostedAtUnix, err := parseInt64Field(fields[5])
+		if err != nil {
+			return nil, fmt.Errorf("time_posted_at: %w", err)
+		}
+		price, err := parseFloat64Field(fields[6])
+		if err != nil {
+			return nil, fmt.Errorf("price: %w", err)
+		}
+		hasPrice, err := parseBoolField(fields[7])
+		if err != nil {
+			return nil, fmt.Errorf("has_price: %w", err)
+		}
+		hasImage, err := parseBoolField(fields[8])
+		if err != nil {
+			return nil, fmt.Errorf("has_image: %w", err)
 		}
 
 		post := domain.Post{
-			ID:            row.ID,
-			CategoryID:    row.CategoryID,
-			SubcategoryID: row.SubcategoryID,
-			Email:         row.Email,
-			Name:          row.Name,
-			Status:        row.Status,
-			TimePosted:    row.TimePosted,
-			TimePostedAt:  row.TimePostedAt,
-			Price:         row.Price,
-			HasPrice:      row.HasPrice,
-			HasImage:      row.HasImage,
-			CreatedAt:     row.CreatedAt,
-			UpdatedAt:     row.UpdatedAt,
+			ID:         id,
+			Email:      fields[1],
+			Name:       fields[2],
+			Status:     int(status64),
+			TimePosted: timePosted,
+			Price:      price,
+			HasPrice:   hasPrice,
+			HasImage:   hasImage,
+		}
+
+		if timePostedAtUnix > 0 {
+			post.TimePostedAt = time.Unix(timePostedAtUnix, 0).UTC()
 		}
 
 		posts = append(posts, post)
 	}
 
-	if limit > 0 && len(posts) > limit {
-		return posts[:limit], nil
-	}
 	if len(posts) > maxRecentActivePosts {
-		return posts[:maxRecentActivePosts], nil
+		posts = posts[:maxRecentActivePosts]
 	}
 	return posts, nil
+}
+
+func parseInt64Field(raw string) (int64, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return 0, nil
+	}
+	out, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid integer %q: %w", raw, err)
+	}
+	return out, nil
+}
+
+func parseFloat64Field(raw string) (float64, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return 0, nil
+	}
+	out, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid number %q: %w", raw, err)
+	}
+	return out, nil
+}
+
+func parseBoolField(raw string) (bool, error) {
+	switch strings.TrimSpace(strings.ToLower(raw)) {
+	case "t", "true", "1":
+		return true, nil
+	case "f", "false", "0", "":
+		return false, nil
+	default:
+		return false, fmt.Errorf("invalid bool %q", raw)
+	}
 }

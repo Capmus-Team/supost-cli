@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Capmus-Team/supost-cli/internal/adapters"
 	"github.com/Capmus-Team/supost-cli/internal/config"
+	"github.com/Capmus-Team/supost-cli/internal/domain"
 	"github.com/Capmus-Team/supost-cli/internal/repository"
 	"github.com/Capmus-Team/supost-cli/internal/service"
 	"github.com/spf13/cobra"
@@ -23,6 +25,14 @@ var homeCmd = &cobra.Command{
 		limit, err := cmd.Flags().GetInt("limit")
 		if err != nil {
 			return fmt.Errorf("reading limit flag: %w", err)
+		}
+		cacheTTL, err := cmd.Flags().GetDuration("cache-ttl")
+		if err != nil {
+			return fmt.Errorf("reading cache-ttl flag: %w", err)
+		}
+		refresh, err := cmd.Flags().GetBool("refresh")
+		if err != nil {
+			return fmt.Errorf("reading refresh flag: %w", err)
 		}
 
 		var (
@@ -48,9 +58,21 @@ var homeCmd = &cobra.Command{
 		}
 
 		svc := service.NewHomeService(repo)
-		posts, err := svc.ListRecentActive(cmd.Context(), limit)
-		if err != nil {
-			return fmt.Errorf("fetching recent active posts: %w", err)
+
+		var posts []domain.Post
+		cachedPosts, ok, err := getCachedHomePosts(cfg.DatabaseURL, refresh, cacheTTL, limit)
+		if err == nil && ok {
+			posts = cachedPosts
+		} else {
+			freshPosts, err := svc.ListRecentActive(cmd.Context(), limit)
+			if err != nil {
+				return fmt.Errorf("fetching recent active posts: %w", err)
+			}
+			posts = freshPosts
+
+			if cfg.DatabaseURL != "" && cacheTTL > 0 {
+				_ = adapters.SaveHomePostsCache(posts)
+			}
 		}
 
 		format := cfg.Format
@@ -67,4 +89,17 @@ var homeCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(homeCmd)
 	homeCmd.Flags().Int("limit", 50, "number of recent active posts to show")
+	homeCmd.Flags().Duration("cache-ttl", 30*time.Second, "cache TTL for home feed when using database")
+	homeCmd.Flags().Bool("refresh", false, "bypass cache and fetch fresh data from database")
+}
+
+func getCachedHomePosts(databaseURL string, refresh bool, ttl time.Duration, limit int) ([]domain.Post, bool, error) {
+	if databaseURL == "" || refresh || ttl <= 0 {
+		return nil, false, nil
+	}
+	posts, ok, err := adapters.LoadHomePostsCache(ttl, limit)
+	if err != nil {
+		return nil, false, err
+	}
+	return posts, ok, nil
 }

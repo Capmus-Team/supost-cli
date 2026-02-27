@@ -11,3 +11,4 @@ vendor/
 coverage.out
 .supost.yaml
 .env
+supabase/.temp

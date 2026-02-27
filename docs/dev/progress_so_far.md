@@ -33,6 +33,15 @@ Commit: `56741a3`
 
 Updated the environment template to keep local setup aligned with currently supported config values.
 
+### 5. Supabase remote schema sync and migration path shift
+Uncommitted changes now captured in this commit.
+
+Delivered schema sync artifacts and cleanup:
+- Added `supabase/migrations/20260227211639_remote_schema.sql` from remote schema pull
+- Removed legacy placeholder migrations under `migrations/`
+- Updated `.gitignore` to ignore local Supabase temp metadata (`supabase/.temp`)
+- Verified live connectivity to Supabase and queried recent rows from `public.post`
+
 ## Current Working Capabilities
 
 As of this update, the repository provides:
@@ -51,6 +60,7 @@ As of this update, the repository provides:
 - Repository abstraction with in-memory implementation as default adapter
 - Output rendering centralized in `internal/adapters/output.go`
 - Migration files as schema source of truth (`migrations/*.sql`)
+- Supabase CLI migration baseline present under `supabase/migrations/`
 
 ## Next Recommended Work
 

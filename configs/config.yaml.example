@@ -1,0 +1,13 @@
+# Example configuration for supost
+# Copy to ~/.supost.yaml or ./supost.yaml
+
+verbose: false
+format: json
+port: 8080
+
+# Supabase Postgres connection (leave empty to use in-memory)
+# Local:    postgresql://postgres:postgres@localhost:54322/postgres
+# Supabase: get from Project Settings → Database → Connection string
+database_url: ""
+supabase_url: ""
+supabase_anon_key: ""

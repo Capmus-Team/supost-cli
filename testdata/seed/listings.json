@@ -1,0 +1,23 @@
+[
+  {
+    "title": "Used Calculus Textbook",
+    "description": "Stewart Calculus, 8th edition. Some highlighting.",
+    "price": 4500,
+    "category": "textbooks",
+    "status": "active"
+  },
+  {
+    "title": "IKEA Desk",
+    "description": "MALM desk, white. Good condition. Pickup only.",
+    "price": 6000,
+    "category": "furniture",
+    "status": "active"
+  },
+  {
+    "title": "Trek Road Bike",
+    "description": "2021 Domane AL 2, 56cm. Low miles.",
+    "price": 55000,
+    "category": "bikes",
+    "status": "active"
+  }
+]

@@ -23,6 +23,8 @@ cp .env.example .env          # fill in credentials
 go run . home                 # now renders live data
 ```
 
+For running the latest code without relying on a globally installed `supost` binary, see [Terminal Commands](docs/terminal_commands.md).
+
 ## Commands
 
 ### Pages (read-only)

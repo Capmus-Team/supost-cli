@@ -40,6 +40,20 @@ func TestWrapStyledWords_SplitsLongWord(t *testing.T) {
 	}
 }
 
+func TestFormatDisplayEmail_StanfordDomainCollapses(t *testing.T) {
+	got := formatDisplayEmail("wientjes@alumni.stanford.edu")
+	if got != "@stanford.edu" {
+		t.Fatalf("got %q, want %q", got, "@stanford.edu")
+	}
+}
+
+func TestFormatDisplayEmail_NonStanfordUnchanged(t *testing.T) {
+	got := formatDisplayEmail("person@example.com")
+	if got != "" {
+		t.Fatalf("got %q, want empty string", got)
+	}
+}
+
 func stripANSI(s string) string {
 	// Minimal scrubber for tests.
 	out := make([]rune, 0, len(s))

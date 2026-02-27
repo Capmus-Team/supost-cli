@@ -34,11 +34,12 @@ func RenderHomePosts(w io.Writer, posts []domain.Post) error {
 
 	for _, post := range posts {
 		title := formatPostTitle(post)
+		email := formatDisplayEmail(post.Email)
 		timeAgo := formatRelativeTime(postTimestamp(post), time.Now())
 
 		words := make([]styledWord, 0, 16)
 		words = append(words, splitStyledWords(title, ansiBlue)...)
-		words = append(words, splitStyledWords(post.Email, ansiGray)...)
+		words = append(words, splitStyledWords(email, ansiGray)...)
 		if post.HasImage {
 			words = append(words, styledWord{text: "📷"})
 		}
@@ -159,6 +160,14 @@ func formatRelativeTime(from, now time.Time) string {
 		return "about 1 day"
 	}
 	return fmt.Sprintf("about %d days", days)
+}
+
+func formatDisplayEmail(email string) string {
+	normalized := strings.TrimSpace(email)
+	if strings.Contains(strings.ToLower(normalized), "stanford.edu") {
+		return "@stanford.edu"
+	}
+	return ""
 }
 
 func splitStyledWords(text, color string) []styledWord {

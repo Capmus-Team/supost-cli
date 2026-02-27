@@ -1,9 +1,10 @@
 package adapters
 
 import (
-	"strings"
 	"testing"
 	"time"
+
+	"github.com/Capmus-Team/supost-cli/internal/domain"
 )
 
 func TestWrapStyledWords_RespectsWidth(t *testing.T) {
@@ -58,26 +59,43 @@ func TestFormatDisplayEmail_NonStanfordUnchanged(t *testing.T) {
 	}
 }
 
-func TestFormatHomeUpdatedTimestamp(t *testing.T) {
+func TestSelectRecentImagePosts_ReturnsTopN(t *testing.T) {
+	posts := []domain.Post{
+		{ID: 130031934, HasImage: true},
+		{ID: 130031933, HasImage: true},
+		{ID: 130031932, HasImage: false},
+		{ID: 130031931, HasImage: true},
+		{ID: 130031930, HasImage: true},
+		{ID: 130031929, HasImage: true},
+	}
+
+	got := selectRecentImagePosts(posts, 4)
+	if len(got) != 4 {
+		t.Fatalf("expected 4 image posts, got %d", len(got))
+	}
+	if got[0].ID != 130031934 || got[1].ID != 130031933 || got[2].ID != 130031931 || got[3].ID != 130031930 {
+		t.Fatalf("unexpected IDs: %#v", got)
+	}
+}
+
+func TestFormatTickerImageURL_UsesPattern(t *testing.T) {
 	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.FixedZone("PST", -8*60*60))
-	got := formatHomeUpdatedTimestamp(now)
-	want := "Fri, Feb 27, 2026 02:25 PM - Updated"
+	post := domain.Post{
+		ID:         130031934,
+		TimePosted: 1772222959,
+		HasImage:   true,
+	}
+	got := formatTickerImageURL(post, now)
+	want := "https://supost-prod.s3.amazonaws.com/posts/130031934/ticker_130031934a?1772222959"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
 
-func TestRenderHomeMetaBar_RightAlignsTimestamp(t *testing.T) {
-	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.FixedZone("PST", -8*60*60))
-	width := 90
-	line := renderHomeMetaBar(now, width)
-	wantSuffix := "Fri, Feb 27, 2026 02:25 PM - Updated"
-
-	if got := len([]rune(line)); got != width {
-		t.Fatalf("line width mismatch: got %d want %d", got, width)
-	}
-	if !strings.HasSuffix(line, wantSuffix) {
-		t.Fatalf("line %q does not end with %q", line, wantSuffix)
+func TestRenderColumnRow_RespectsTotalWidth(t *testing.T) {
+	line := renderColumnRow([]string{"one", "two", "three", "four"}, 10, "", 4)
+	if got := len([]rune(line)); got != 46 {
+		t.Fatalf("unexpected row width: got %d want %d", got, 46)
 	}
 }
 

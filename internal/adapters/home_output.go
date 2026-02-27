@@ -12,13 +12,10 @@ import (
 )
 
 const (
-	ansiReset   = "\033[0m"
 	ansiBlue    = "\033[1;34m"
 	ansiGray    = "\033[0;37m"
 	ansiMagenta = "\033[0;35m"
 	ansiHeader  = "\033[48;5;153m\033[1;34m"
-	ansiTopBar  = "\033[48;5;24m\033[1;37m"
-	ansiMetaBar = "\033[48;5;252m\033[1;34m"
 
 	homeRowWidth = 118
 )
@@ -32,10 +29,15 @@ type styledWord struct {
 func RenderHomePosts(w io.Writer, posts []domain.Post) error {
 	now := time.Now()
 
-	if _, err := fmt.Fprintf(w, "%s%s%s\n", ansiTopBar, renderHomeTopBar(homeRowWidth), ansiReset); err != nil {
+	if err := RenderPageHeader(w, PageHeaderOptions{
+		Width:      homeRowWidth,
+		Location:   "Stanford, California",
+		RightLabel: "post",
+		Now:        now,
+	}); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "%s%s%s\n", ansiMetaBar, renderHomeMetaBar(now, homeRowWidth), ansiReset); err != nil {
+	if err := renderHomePhotoStrip(w, posts, now, homeRowWidth); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintf(w, "%s%s%s\n", ansiHeader, renderHomeHeader("recently posted", homeRowWidth), ansiReset); err != nil {
@@ -66,23 +68,6 @@ func RenderHomePosts(w io.Writer, posts []domain.Post) error {
 	return nil
 }
 
-func renderHomeTopBar(width int) string {
-	left := " SUPost  [__________] [Search]"
-	center := "Stanford, California"
-	right := "post "
-	return renderThreePartLine(left, center, right, width)
-}
-
-func renderHomeMetaBar(now time.Time, width int) string {
-	left := " SUPost » Stanford, California"
-	right := formatHomeUpdatedTimestamp(now)
-	return renderSplitLine(left, right, width)
-}
-
-func formatHomeUpdatedTimestamp(now time.Time) string {
-	return now.Format("Mon, Jan 2, 2006 03:04 PM") + " - Updated"
-}
-
 func renderHomeHeader(text string, width int) string {
 	if width < len(text)+2 {
 		return " " + text + " "
@@ -92,6 +77,109 @@ func renderHomeHeader(text string, width int) string {
 	left := padding / 2
 	right := padding - left
 	return strings.Repeat(" ", left) + text + strings.Repeat(" ", right)
+}
+
+func renderHomePhotoStrip(w io.Writer, posts []domain.Post, now time.Time, width int) error {
+	photos := selectRecentImagePosts(posts, 4)
+	if len(photos) == 0 {
+		return nil
+	}
+
+	columnWidth := photoColumnWidth(width, 4, 2)
+	imageURLs := make([]string, 0, len(photos))
+	titles := make([]string, 0, len(photos))
+	timeAgo := make([]string, 0, len(photos))
+
+	for _, post := range photos {
+		imageURLs = append(imageURLs, formatTickerImageURL(post, now))
+		titles = append(titles, strings.TrimSpace(post.Name))
+		timeAgo = append(timeAgo, formatRelativeTime(postTimestamp(post), now))
+	}
+
+	if _, err := fmt.Fprintln(w, renderColumnRow(imageURLs, columnWidth, "", 4)); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, renderColumnRow(titles, columnWidth, ansiBlue, 4)); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w, renderColumnRow(timeAgo, columnWidth, ansiMagenta, 4)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func selectRecentImagePosts(posts []domain.Post, limit int) []domain.Post {
+	if limit <= 0 {
+		return nil
+	}
+	selected := make([]domain.Post, 0, limit)
+	for _, post := range posts {
+		if !post.HasImage {
+			continue
+		}
+		selected = append(selected, post)
+		if len(selected) == limit {
+			break
+		}
+	}
+	return selected
+}
+
+func formatTickerImageURL(post domain.Post, now time.Time) string {
+	timestamp := post.TimePosted
+	if timestamp <= 0 {
+		if postedAt := postTimestamp(post); !postedAt.IsZero() {
+			timestamp = postedAt.Unix()
+		}
+	}
+	if timestamp <= 0 {
+		timestamp = now.Unix()
+	}
+	return fmt.Sprintf("https://supost-prod.s3.amazonaws.com/posts/%d/ticker_%da?%d", post.ID, post.ID, timestamp)
+}
+
+func photoColumnWidth(totalWidth, columns, gap int) int {
+	if columns <= 0 {
+		return totalWidth
+	}
+	usable := totalWidth - ((columns - 1) * gap)
+	if usable < columns {
+		return 1
+	}
+	return usable / columns
+}
+
+func renderColumnRow(values []string, width int, color string, columns int) string {
+	if columns <= 0 {
+		columns = 1
+	}
+	cells := make([]string, 0, columns)
+	for i := 0; i < columns; i++ {
+		value := ""
+		if i < len(values) {
+			value = strings.TrimSpace(values[i])
+		}
+		cell := fitText(value, width)
+		if color != "" && value != "" {
+			cell = color + cell + ansiReset
+		}
+		cells = append(cells, cell)
+	}
+	return strings.Join(cells, "  ")
+}
+
+func fitText(value string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	runes := []rune(value)
+	if len(runes) > width {
+		if width == 1 {
+			return "…"
+		}
+		return string(runes[:width-1]) + "…"
+	}
+	return value + strings.Repeat(" ", width-len(runes))
 }
 
 func formatPostTitle(post domain.Post) string {
@@ -279,46 +367,4 @@ func renderStyledLine(words []styledWord) string {
 		}
 	}
 	return b.String()
-}
-
-func renderThreePartLine(left, center, right string, width int) string {
-	if width <= 0 {
-		return strings.TrimSpace(left + " " + center + " " + right)
-	}
-
-	leftLen := len([]rune(left))
-	centerLen := len([]rune(center))
-	rightLen := len([]rune(right))
-	if leftLen+centerLen+rightLen > width {
-		return renderSplitLine(left+" "+center, right, width)
-	}
-
-	remaining := width - leftLen - rightLen
-	if centerLen > remaining {
-		return renderSplitLine(left+" "+center, right, width)
-	}
-
-	spacing := remaining - centerLen
-	leftPad := spacing / 2
-	rightPad := spacing - leftPad
-	return left + strings.Repeat(" ", leftPad) + center + strings.Repeat(" ", rightPad) + right
-}
-
-func renderSplitLine(left, right string, width int) string {
-	if width <= 0 {
-		return strings.TrimSpace(left + " " + right)
-	}
-
-	rightRunes := []rune(right)
-	if len(rightRunes) >= width {
-		return string(rightRunes[:width])
-	}
-
-	leftRunes := []rune(left)
-	availableLeft := width - len(rightRunes)
-	if len(leftRunes) > availableLeft {
-		leftRunes = leftRunes[:availableLeft]
-	}
-
-	return string(leftRunes) + strings.Repeat(" ", availableLeft-len(leftRunes)) + right
 }

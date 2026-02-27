@@ -19,3 +19,8 @@ type ListingStore interface {
 	GetByID(ctx context.Context, id string) (*domain.Listing, error)
 	Create(ctx context.Context, listing *domain.Listing) error
 }
+
+// HomePostStore is the read contract for homepage posts.
+type HomePostStore interface {
+	ListRecentActivePosts(ctx context.Context, limit int) ([]domain.Post, error)
+}

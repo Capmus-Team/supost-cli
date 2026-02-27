@@ -3,9 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/subosito/gotenv"
 )
 
 var cfgFile string
@@ -29,9 +31,12 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.supost.yaml)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose output")
 	rootCmd.PersistentFlags().String("format", "json", "output format: json, table, text")
+	cobra.CheckErr(viper.BindPFlags(rootCmd.PersistentFlags()))
 }
 
 func initConfig() {
+	_ = gotenv.Load(".env")
+
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
@@ -43,6 +48,7 @@ func initConfig() {
 		viper.SetConfigName(".supost")
 	}
 
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {

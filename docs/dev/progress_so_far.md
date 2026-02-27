@@ -42,6 +42,14 @@ Delivered schema sync artifacts and cleanup:
 - Updated `.gitignore` to ignore local Supabase temp metadata (`supabase/.temp`)
 - Verified live connectivity to Supabase and queried recent rows from `public.post`
 
+### 6. README rewrite and backup snapshot
+Uncommitted changes now captured in this commit.
+
+Documentation updates in progress:
+- Rewrote `README.md` toward a website-oriented command walkthrough
+- Added `README-old.md` as a snapshot of the previous concise README
+- Expanded examples for `website`-style command paths and Mailgun usage notes
+
 ## Current Working Capabilities
 
 As of this update, the repository provides:

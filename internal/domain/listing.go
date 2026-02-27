@@ -9,9 +9,9 @@ type Listing struct {
 	UserID      string    `json:"user_id"     db:"user_id"`
 	Title       string    `json:"title"       db:"title"`
 	Description string    `json:"description" db:"description"`
-	Price       int       `json:"price"       db:"price"`       // cents
+	Price       int       `json:"price"       db:"price"` // cents
 	Category    string    `json:"category"    db:"category"`
-	Status      string    `json:"status"      db:"status"`      // active, sold, expired
+	Status      string    `json:"status"      db:"status"` // active, sold, expired
 	CreatedAt   time.Time `json:"created_at"  db:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"  db:"updated_at"`
 }

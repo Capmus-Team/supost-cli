@@ -12,18 +12,18 @@ type Config struct {
 	Port        int    `json:"port"`
 
 	// Supabase (used by future Next.js frontend — shared .env)
-	SupabaseURL    string `json:"supabase_url"`
+	SupabaseURL     string `json:"supabase_url"`
 	SupabaseAnonKey string `json:"supabase_anon_key"`
 }
 
 // Load reads configuration from viper (merges file + env + flags).
 func Load() (*Config, error) {
 	return &Config{
-		Verbose:        viper.GetBool("verbose"),
-		Format:         viper.GetString("format"),
-		DatabaseURL:    viper.GetString("database_url"),
-		Port:           viper.GetInt("port"),
-		SupabaseURL:    viper.GetString("supabase_url"),
+		Verbose:         viper.GetBool("verbose"),
+		Format:          viper.GetString("format"),
+		DatabaseURL:     viper.GetString("database_url"),
+		Port:            viper.GetInt("port"),
+		SupabaseURL:     viper.GetString("supabase_url"),
 		SupabaseAnonKey: viper.GetString("supabase_anon_key"),
 	}, nil
 }

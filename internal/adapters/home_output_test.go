@@ -1,6 +1,10 @@
 package adapters
 
-import "testing"
+import (
+	"strings"
+	"testing"
+	"time"
+)
 
 func TestWrapStyledWords_RespectsWidth(t *testing.T) {
 	words := []styledWord{
@@ -51,6 +55,29 @@ func TestFormatDisplayEmail_NonStanfordUnchanged(t *testing.T) {
 	got := formatDisplayEmail("person@example.com")
 	if got != "" {
 		t.Fatalf("got %q, want empty string", got)
+	}
+}
+
+func TestFormatHomeUpdatedTimestamp(t *testing.T) {
+	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.FixedZone("PST", -8*60*60))
+	got := formatHomeUpdatedTimestamp(now)
+	want := "Fri, Feb 27, 2026 02:25 PM - Updated"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestRenderHomeMetaBar_RightAlignsTimestamp(t *testing.T) {
+	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.FixedZone("PST", -8*60*60))
+	width := 90
+	line := renderHomeMetaBar(now, width)
+	wantSuffix := "Fri, Feb 27, 2026 02:25 PM - Updated"
+
+	if got := len([]rune(line)); got != width {
+		t.Fatalf("line width mismatch: got %d want %d", got, width)
+	}
+	if !strings.HasSuffix(line, wantSuffix) {
+		t.Fatalf("line %q does not end with %q", line, wantSuffix)
 	}
 }
 

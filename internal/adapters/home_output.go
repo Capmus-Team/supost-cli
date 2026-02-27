@@ -17,8 +17,10 @@ const (
 	ansiGray    = "\033[0;37m"
 	ansiMagenta = "\033[0;35m"
 	ansiHeader  = "\033[48;5;153m\033[1;34m"
+	ansiTopBar  = "\033[48;5;24m\033[1;37m"
+	ansiMetaBar = "\033[48;5;252m\033[1;34m"
 
-	homeRowWidth = 54
+	homeRowWidth = 118
 )
 
 type styledWord struct {
@@ -28,6 +30,14 @@ type styledWord struct {
 
 // RenderHomePosts renders the terminal homepage list.
 func RenderHomePosts(w io.Writer, posts []domain.Post) error {
+	now := time.Now()
+
+	if _, err := fmt.Fprintf(w, "%s%s%s\n", ansiTopBar, renderHomeTopBar(homeRowWidth), ansiReset); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "%s%s%s\n", ansiMetaBar, renderHomeMetaBar(now, homeRowWidth), ansiReset); err != nil {
+		return err
+	}
 	if _, err := fmt.Fprintf(w, "%s%s%s\n", ansiHeader, renderHomeHeader("recently posted", homeRowWidth), ansiReset); err != nil {
 		return err
 	}
@@ -35,7 +45,7 @@ func RenderHomePosts(w io.Writer, posts []domain.Post) error {
 	for _, post := range posts {
 		title := formatPostTitle(post)
 		email := formatDisplayEmail(post.Email)
-		timeAgo := formatRelativeTime(postTimestamp(post), time.Now())
+		timeAgo := formatRelativeTime(postTimestamp(post), now)
 
 		words := make([]styledWord, 0, 16)
 		words = append(words, splitStyledWords(title, ansiBlue)...)
@@ -54,6 +64,23 @@ func RenderHomePosts(w io.Writer, posts []domain.Post) error {
 	}
 
 	return nil
+}
+
+func renderHomeTopBar(width int) string {
+	left := " SUPost  [__________] [Search]"
+	center := "Stanford, California"
+	right := "post "
+	return renderThreePartLine(left, center, right, width)
+}
+
+func renderHomeMetaBar(now time.Time, width int) string {
+	left := " SUPost » Stanford, California"
+	right := formatHomeUpdatedTimestamp(now)
+	return renderSplitLine(left, right, width)
+}
+
+func formatHomeUpdatedTimestamp(now time.Time) string {
+	return now.Format("Mon, Jan 2, 2006 03:04 PM") + " - Updated"
 }
 
 func renderHomeHeader(text string, width int) string {
@@ -252,4 +279,46 @@ func renderStyledLine(words []styledWord) string {
 		}
 	}
 	return b.String()
+}
+
+func renderThreePartLine(left, center, right string, width int) string {
+	if width <= 0 {
+		return strings.TrimSpace(left + " " + center + " " + right)
+	}
+
+	leftLen := len([]rune(left))
+	centerLen := len([]rune(center))
+	rightLen := len([]rune(right))
+	if leftLen+centerLen+rightLen > width {
+		return renderSplitLine(left+" "+center, right, width)
+	}
+
+	remaining := width - leftLen - rightLen
+	if centerLen > remaining {
+		return renderSplitLine(left+" "+center, right, width)
+	}
+
+	spacing := remaining - centerLen
+	leftPad := spacing / 2
+	rightPad := spacing - leftPad
+	return left + strings.Repeat(" ", leftPad) + center + strings.Repeat(" ", rightPad) + right
+}
+
+func renderSplitLine(left, right string, width int) string {
+	if width <= 0 {
+		return strings.TrimSpace(left + " " + right)
+	}
+
+	rightRunes := []rune(right)
+	if len(rightRunes) >= width {
+		return string(rightRunes[:width])
+	}
+
+	leftRunes := []rune(left)
+	availableLeft := width - len(rightRunes)
+	if len(leftRunes) > availableLeft {
+		leftRunes = leftRunes[:availableLeft]
+	}
+
+	return string(leftRunes) + strings.Repeat(" ", availableLeft-len(leftRunes)) + right
 }

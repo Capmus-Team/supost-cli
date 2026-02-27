@@ -35,11 +35,17 @@ var homeCmd = &cobra.Command{
 			return fmt.Errorf("reading refresh flag: %w", err)
 		}
 
+		if cfg.DatabaseURL != "" {
+			cachedPosts, ok, err := getCachedHomePosts(cfg.DatabaseURL, refresh, cacheTTL, limit)
+			if err == nil && ok {
+				return renderHomeOutput(cmd, cfg.Format, cachedPosts)
+			}
+		}
+
 		var (
 			repo      service.HomeRepository
 			closeRepo func() error
 		)
-
 		if cfg.DatabaseURL != "" {
 			pgRepo, err := repository.NewPostgres(cfg.DatabaseURL)
 			if err != nil {
@@ -50,7 +56,6 @@ var homeCmd = &cobra.Command{
 		} else {
 			repo = repository.NewInMemory()
 		}
-
 		if closeRepo != nil {
 			defer func() {
 				_ = closeRepo()
@@ -58,31 +63,16 @@ var homeCmd = &cobra.Command{
 		}
 
 		svc := service.NewHomeService(repo)
-
-		var posts []domain.Post
-		cachedPosts, ok, err := getCachedHomePosts(cfg.DatabaseURL, refresh, cacheTTL, limit)
-		if err == nil && ok {
-			posts = cachedPosts
-		} else {
-			freshPosts, err := svc.ListRecentActive(cmd.Context(), limit)
-			if err != nil {
-				return fmt.Errorf("fetching recent active posts: %w", err)
-			}
-			posts = freshPosts
-
-			if cfg.DatabaseURL != "" && cacheTTL > 0 {
-				_ = adapters.SaveHomePostsCache(posts)
-			}
+		posts, err := svc.ListRecentActive(cmd.Context(), limit)
+		if err != nil {
+			return fmt.Errorf("fetching recent active posts: %w", err)
 		}
 
-		format := cfg.Format
-		if !cmd.Flags().Changed("format") && (format == "" || format == "json") {
-			return adapters.RenderHomePosts(cmd.OutOrStdout(), posts)
+		if cfg.DatabaseURL != "" && cacheTTL > 0 {
+			_ = adapters.SaveHomePostsCache(posts)
 		}
-		if format == "text" || format == "table" {
-			return adapters.RenderHomePosts(cmd.OutOrStdout(), posts)
-		}
-		return adapters.Render(format, posts)
+
+		return renderHomeOutput(cmd, cfg.Format, posts)
 	},
 }
 
@@ -102,4 +92,14 @@ func getCachedHomePosts(databaseURL string, refresh bool, ttl time.Duration, lim
 		return nil, false, err
 	}
 	return posts, ok, nil
+}
+
+func renderHomeOutput(cmd *cobra.Command, format string, posts []domain.Post) error {
+	if !cmd.Flags().Changed("format") && (format == "" || format == "json") {
+		return adapters.RenderHomePosts(cmd.OutOrStdout(), posts)
+	}
+	if format == "text" || format == "table" {
+		return adapters.RenderHomePosts(cmd.OutOrStdout(), posts)
+	}
+	return adapters.Render(format, posts)
 }

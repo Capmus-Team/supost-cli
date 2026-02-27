@@ -1,6 +1,9 @@
 package repository
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestClampRecentLimit(t *testing.T) {
 	tests := []struct {
@@ -24,40 +27,32 @@ func TestClampRecentLimit(t *testing.T) {
 	}
 }
 
-func TestParseRecentActivePosts(t *testing.T) {
-	raw := "130\x1fperson@stanford.edu\x1fBike for sale\x1f1\x1f1700000000\x1f1700000001\x1f100.00\x1ft\x1ff"
+func TestEnsurePoolerSafeConnectionString_URLStyle(t *testing.T) {
+	input := "postgresql://u:p@localhost:5432/db?sslmode=require"
+	out := ensurePoolerSafeConnectionString(input)
 
-	posts, err := parseRecentActivePosts(raw)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if !strings.Contains(out, "default_query_exec_mode=simple_protocol") {
+		t.Fatalf("missing default_query_exec_mode in %q", out)
 	}
-	if len(posts) != 1 {
-		t.Fatalf("got %d posts, want 1", len(posts))
+	if !strings.Contains(out, "statement_cache_capacity=0") {
+		t.Fatalf("missing statement_cache_capacity in %q", out)
 	}
+	if !strings.Contains(out, "description_cache_capacity=0") {
+		t.Fatalf("missing description_cache_capacity in %q", out)
+	}
+}
 
-	post := posts[0]
-	if post.ID != 130 {
-		t.Fatalf("id got %d, want %d", post.ID, 130)
+func TestEnsurePoolerSafeConnectionString_KeyValueStyle(t *testing.T) {
+	input := "host=localhost port=5432 user=postgres password=secret dbname=postgres sslmode=disable"
+	out := ensurePoolerSafeConnectionString(input)
+
+	if !strings.Contains(out, "default_query_exec_mode=simple_protocol") {
+		t.Fatalf("missing default_query_exec_mode in %q", out)
 	}
-	if post.Email != "person@stanford.edu" {
-		t.Fatalf("email got %q", post.Email)
+	if !strings.Contains(out, "statement_cache_capacity=0") {
+		t.Fatalf("missing statement_cache_capacity in %q", out)
 	}
-	if post.Name != "Bike for sale" {
-		t.Fatalf("name got %q", post.Name)
-	}
-	if !post.HasPrice {
-		t.Fatalf("expected has_price=true")
-	}
-	if post.HasImage {
-		t.Fatalf("expected has_image=false")
-	}
-	if post.Price != 100 {
-		t.Fatalf("price got %v, want 100", post.Price)
-	}
-	if post.TimePosted != 1700000000 {
-		t.Fatalf("time_posted got %d", post.TimePosted)
-	}
-	if post.TimePostedAt.IsZero() {
-		t.Fatalf("expected non-zero time_posted_at")
+	if !strings.Contains(out, "description_cache_capacity=0") {
+		t.Fatalf("missing description_cache_capacity in %q", out)
 	}
 }

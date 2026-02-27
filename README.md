@@ -1,100 +1,254 @@
-
 # supost
 
-**A university marketplace CLI prototype.**  
-It renders beautiful **website-like terminal views** directly on top of the live `supost.com` Supabase Postgres database.  
-You can browse the homepage, search results, individual posts, and even submit new posts — all from your terminal.  
+A university marketplace CLI that renders website-like terminal views on top of the live SUPost Supabase Postgres database. Browse the homepage, search listings, view posts, create new posts, and send response emails — all from your terminal.
 
-Production stack (future): **Supabase Postgres + Next.js/TypeScript web frontend**.  
-This CLI is the perfect prototype: clean Go architecture today, easy port to Next.js tomorrow.
+Production stack (future): Supabase + Next.js. This CLI is the prototype: clean Go architecture today, easy port to TypeScript tomorrow.
 
 ## Quick Start
 
-No database, no API keys, no Docker required. Works immediately with in-memory seed data.
+Works immediately with in-memory seed data — no database, no API keys, no Docker.
 
 ```bash
-# 1. Build & run (after scaffolding)
-go run ./cmd/supost version          # → v0.1.0
-
-# 2. Try the website pages (Cobra structure)
-go run ./cmd/supost website home                    # Full homepage shell
-go run ./cmd/supost website search-results --subcategory 14
-go run ./cmd/supost website post 130031605
+go run . version              # → v0.1.0
+go run . home                 # homepage
+go run . search --category 5  # search results
+go run . post seed-1          # view a post
+go run . serve                # preview HTTP server at localhost:8080
 ```
 
-For create-post flow and emails, copy the env template:
+To connect to the real SUPost database:
 
 ```bash
-cp .env.example .env
+cp .env.example .env          # fill in credentials
+go run . home                 # now renders live data
 ```
 
-Then run:
-```bash
-go run ./cmd/supost website create --help
-```
+## Commands
 
-## Essential Commands (Cobra Style)
-
-All website simulation lives under the `website` parent command.
+### Pages (read-only)
 
 ```bash
 # Homepage
-supost website home
+supost home
 
-# Search results page (filters + pagination)
-supost website search-results --subcategory 14
-supost website search-results --category 5 --page 2
-supost website search-results --subcategory 59 --page 1 --limit 20
+# Search results with filters + pagination
+supost search --category 5
+supost search --subcategory 14
+supost search --category 5 --page 2 --per-page 20
 
-# Single post page
-supost website post 130031605
+# View a single post
+supost post 130031605
 
-# Reply to a post (sends Mailgun + saves message)
-supost website post 130031783 \
-  --message "Hello, I want to buy your bike" \
-  --email-reply-to "gwientjes@gmail.com"
+# List categories (utility)
+supost categories
+```
 
-# Create-post flow
-supost website create                              # Step 1: category chooser
-supost website create --category 8                 # Step 2: subcategory
-supost website create --category 5 --subcategory 14 # Step 3: full form
+### Create a Post
 
-# Submit a new post (INSERT + publish email)
-supost website create \
+The `post create` command handles the full create-post wizard. Flags determine which step you're on:
+
+```bash
+# Step 1: choose category
+supost post create
+
+# Step 2: choose subcategory
+supost post create --category 8
+
+# Step 3: show form fields
+supost post create --category 5 --subcategory 14
+
+# Submit (all required fields present → validates + INSERTs + sends publish email)
+supost post create \
   --category 5 \
   --subcategory 14 \
   --name "Red bike for sale" \
   --body "Pick up on campus." \
   --email "wientjes@alumni.stanford.edu" \
-  --price 100 \
-  --submit
+  --price 100
 
-# Personals post (no price)
-supost website create \
+# Personals post (no price field for category 8)
+supost post create \
   --category 8 \
   --subcategory 130 \
   --name "Missed connection" \
   --body "Saw you at Coupa." \
-  --email "wientjes@cs.stanford.edu" \
-  --submit
+  --email "wientjes@cs.stanford.edu"
+
+# Dry run: validate + render email, no INSERT, no send
+supost post create \
+  --category 5 --subcategory 14 \
+  --name "Test" --body "Test" --email "test@stanford.edu" --price 50 \
+  --dry-run
+```
+
+### Respond to a Post
+
+```bash
+# Send a response email to the post owner (+ saves to messages table)
+supost post respond 130031783 \
+  --message "Hello, I want to buy your bike" \
+  --reply-to "gwientjes@gmail.com"
+
+# Dry run: validate + render email, don't send, don't persist
+supost post respond 130031783 \
+  --message "Test message" \
+  --reply-to "test@gmail.com" \
+  --dry-run
+```
+
+### Utility
+
+```bash
+supost version                # print version
+supost serve                  # preview HTTP server
+supost serve --port 3000      # custom port
+```
+
+## Command Reference
+
+```
+supost
+├── home                          # render homepage
+├── search                        # render search results page
+│     --category <id>
+│     --subcategory <id>
+│     --page <n>                  (default: 1)
+│     --per-page <n>              (default: 20)
+├── post <post_id>                # render single post page
+├── post create                   # create-post wizard / submit
+│     --category <id>
+│     --subcategory <id>
+│     --name <string>
+│     --body <string>
+│     --email <string>
+│     --price <amount>            (required for some categories)
+│     --dry-run                   (validate only, no write)
+├── post respond <post_id>        # send response email
+│     --message <string>          (required)
+│     --reply-to <email>          (required)
+│     --dry-run                   (validate only, no send)
+├── categories                    # list categories + subcategories
+├── serve                         # preview HTTP server
+│     --port <n>                  (default: 8080)
+└── version                       # print version
+```
+
+### Global Flags (available on all commands)
+
+```
+--verbose, -v       enable verbose/debug output
+--format <string>   output format: json, table, text (default: json)
+--config <path>     config file (default: .supost.yaml)
+```
+
+## Project Structure
+
+```
+supost-cli/
+├── AGENTS.md                        # AI agent governance — read first
+├── main.go                          # entrypoint (wiring only)
+│
+├── cmd/                             # one file per command
+│   ├── root.go                      # global flags, config init
+│   ├── version.go                   # supost version
+│   ├── home.go                      # supost home
+│   ├── search.go                    # supost search
+│   ├── post.go                      # supost post <id>
+│   ├── post_create.go               # supost post create
+│   ├── post_respond.go              # supost post respond <id>
+│   ├── categories.go                # supost categories
+│   └── serve.go                     # supost serve
+│
+├── internal/
+│   ├── config/config.go             # centralized config (Viper)
+│   ├── domain/                      # types → Supabase tables
+│   │   ├── post.go                  # Post struct (json + db tags)
+│   │   ├── category.go              # Category, Subcategory
+│   │   ├── user.go                  # User / Profile
+│   │   ├── message.go               # Response messages
+│   │   └── errors.go                # domain errors (HTTP-mappable)
+│   ├── service/                     # business logic (the brain)
+│   │   ├── posts.go                 # Create, Validate, GetByID, Search
+│   │   ├── categories.go            # ListCategories, GetSubcategories
+│   │   ├── email.go                 # SendPublishLink, SendResponse
+│   │   └── home.go                  # HomepageData (posts + categories)
+│   ├── repository/                  # data access (swappable)
+│   │   ├── interfaces.go
+│   │   ├── inmemory.go              # zero-dep prototype adapter
+│   │   └── postgres.go              # real Supabase/Postgres adapter
+│   ├── adapters/                    # external services
+│   │   ├── output.go                # JSON/table/text rendering
+│   │   └── mailgun.go               # email sending
+│   └── util/
+│
+├── migrations/                      # SQL schema (Supabase-ready)
+├── configs/config.yaml.example
+├── testdata/seed/
+└── .env.example
 ```
 
 ## Create-Post Validation
 
-Exact same rules as the real site:
-- Email required + must be Stanford-affiliated
-- Name & Body required
-- Price required only for certain categories
-- Errors shown in the exact friendly format you know.
+When submitting a post, the following rules apply:
+
+- **Email** is required and must be Stanford-affiliated:
+  - Any `*.stanford.edu` domain (e.g., `@stanford.edu`, `@cs.stanford.edu`, `@gsb.stanford.edu`)
+  - Also: `@stanfordalumni.org`, `@stanfordchildrens.org`, `@stanfordhealthcare.org`, `@stanfordmed.org`, `@lpch.org`
+- **Name** and **Body** are required
+- **Price** is category-dependent:
+  - Required for: for sale/wanted (5), housing offering (3)
+  - Not available for: personals (8), housing need (4), community (9), service offered (7), campus job (1), job off-campus (2)
+
+Validation errors follow the same format as the real site:
+
+```
+1 error prohibited this post from being saved
+There were problems with the following fields:
+
+Email must be a Stanford email (e.g., @stanford.edu, @cs.stanford.edu).
+```
 
 ## Email Features (Mailgun)
 
-- Successful submit → generates `access_token` + sends “SUpost - Publish your post!” email
-- Reply → sends response email + saves to `app_private.message` table
+### Publish-Link Confirmation
 
-Required env vars (in `.env`):
-- `MAILGUN_DOMAIN`, `MAILGUN_API_KEY`, `MAILGUN_FROM_EMAIL`
-- Optional: `MAILGUN_API_BASE`, `MAILGUN_SEND_TIMEOUT`, `SUPOST_BASE_URL`
+After successful post creation:
+- Generates a post `access_token`
+- Sends email with subject: `SUpost - Publish your post! <post name>`
+- Includes publish URL: `<SUPOST_BASE_URL>/post/publish/<access_token>`
+
+### Post Response
+
+When sending a response:
+- Sends email to the post owner's stored email
+- Sets `Reply-To` header to `--reply-to` address
+- Saves message to `app_private.message` table
+
+## Environment Variables
+
+```bash
+# Database (leave empty for in-memory prototype)
+DATABASE_URL=                       # read/write Postgres connection
+# DATABASE_READ_URL=                # optional: separate read-only connection
+
+# Supabase
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Mailgun (required for email features)
+MAILGUN_DOMAIN=
+MAILGUN_API_KEY=
+MAILGUN_FROM_EMAIL=
+MAILGUN_API_BASE=                   # https://api.mailgun.net (US) or https://api.eu.mailgun.net (EU)
+MAILGUN_SEND_TIMEOUT=10s
+
+# App
+SUPOST_BASE_URL=https://n.supost.com
+PORT=8080
+VERBOSE=false
+FORMAT=json
+```
 
 ## Development
 
@@ -102,41 +256,22 @@ Required env vars (in `.env`):
 cp .env.example .env
 cp configs/config.yaml.example .supost.yaml
 
-make check   # format, lint, build, test
-make build   # compile to bin/supost
-make test
-make serve   # optional HTTP preview
+make check    # format, vet, build, test
+make build    # compile to bin/supost
+make test     # tests with race detector
+make serve    # preview HTTP server
 make clean
 ```
 
-## Project Structure
+## Migration to Production (Next.js + Supabase)
 
-See **[AGENTS.md](AGENTS.md)** for the full architecture guide (Cobra commands in `internal/cli/commands/`, pure logic in `internal/core/`, adapters for Supabase/Mailgun).
-
-## Connecting Real Supabase
-
-Defaults to fast in-memory storage.  
-To go live:
-1. Add your Supabase credentials to `.env`
-2. Adapter auto-switches
-3. All commands work against real data
-
-## Migration to Production (Next.js)
-
-1. Apply same migrations to Supabase
-2. Port `internal/core/domain/` structs → TypeScript
-3. Port `internal/core/service/` → Next.js API routes
-4. Keep validation & email logic forever
-
-## Full Command Reference & Docs
-
-- Detailed workflows → `docs/cli-command-reference.md`
-- Schema & progress → `docs/`
-- Latest schema → `docs/reference/supost_2-22-26_schema.sql`
+1. **Schema** → Apply `migrations/*.sql` to Supabase, uncomment RLS policies
+2. **Types** → Translate `internal/domain/*.go` structs to TypeScript interfaces (`json` tags = field names)
+3. **Logic** → Port `internal/service/*.go` to Next.js API routes (nearly 1:1)
+4. **Data access** → Replace Go repository with Supabase JS SDK
+5. **Auth** → Replace CLI email validation with Supabase Auth + RLS
+6. **Seed data** → Import `testdata/seed/*.json` into Supabase
 
 ---
 
-**Last updated**: February 2026  
-Built with clean Cobra + standard Go layout. Ready for you and any AI to extend forever.
-
-Happy prototyping! Run `supost website home` and watch the website appear in your terminal.
+*Built with Cobra + clean Go architecture. See [AGENTS.md](AGENTS.md) for the full governance guide.*

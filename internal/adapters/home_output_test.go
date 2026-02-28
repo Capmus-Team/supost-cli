@@ -174,7 +174,8 @@ func TestCenterText_ProducesFixedWidth(t *testing.T) {
 func TestRenderHomeOverviewRows_ContainsRequestedCopy(t *testing.T) {
 	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.UTC)
 	sections := normalizeHomeSections(nil)
-	rows := renderHomeOverviewRows(28, sections, now)
+	sectionViews := buildHomeSectionAgeViews(sections, now)
+	rows := renderHomeOverviewRows(28, sectionViews)
 	if len(rows) != 8 {
 		t.Fatalf("expected 8 overview rows, got %d", len(rows))
 	}
@@ -208,7 +209,8 @@ func TestRenderHomeOverviewRows_ContainsRequestedCopy(t *testing.T) {
 func TestRenderHomeCategoryDetailsRows_IncludesRequestedSubcategories(t *testing.T) {
 	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.UTC)
 	sections := normalizeHomeSections(nil)
-	rows := renderHomeCategoryDetailsRows(36, sections, now)
+	sectionViews := buildHomeSectionAgeViews(sections, now)
+	rows := renderHomeCategoryDetailsRows(36, sectionViews)
 	if len(rows) == 0 {
 		t.Fatalf("expected detail rows")
 	}

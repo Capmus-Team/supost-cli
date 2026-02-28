@@ -15,6 +15,12 @@ type homeCategoryDefinition struct {
 	subcategories []string
 }
 
+type homeSectionAgeView struct {
+	Section     domain.HomeCategorySection
+	CompactAge  string
+	DetailedAge string
+}
+
 var defaultHomeCategoryDefinitions = []homeCategoryDefinition{
 	{
 		id:   domain.CategoryHousing,
@@ -107,7 +113,8 @@ func renderHomeOverviewAndRecent(w io.Writer, posts []domain.Post, sections []do
 	leftWidth, rightWidth := calculateStripWidths(width)
 	normalizedSections := normalizeHomeSections(sections)
 	normalizedSections = fillMissingSectionTimes(normalizedSections, posts)
-	leftRows := renderHomeSidebarRows(leftWidth, normalizedSections, now)
+	sectionViews := buildHomeSectionAgeViews(normalizedSections, now)
+	leftRows := renderHomeSidebarRows(leftWidth, sectionViews)
 	recentWrapWidth := minInt(homeRecentWidth, rightWidth)
 	rightRows := renderRecentPostRows(posts, now, recentWrapWidth, rightWidth)
 
@@ -132,20 +139,20 @@ func renderHomeOverviewAndRecent(w io.Writer, posts []domain.Post, sections []do
 	return nil
 }
 
-func renderHomeSidebarRows(width int, sections []domain.HomeCategorySection, now time.Time) []string {
+func renderHomeSidebarRows(width int, sectionViews []homeSectionAgeView) []string {
 	rows := make([]string, 0, 48)
-	rows = append(rows, renderHomeOverviewRows(width, sections, now)...)
+	rows = append(rows, renderHomeOverviewRows(width, sectionViews)...)
 	rows = append(rows, strings.Repeat(" ", width))
-	rows = append(rows, renderHomeCategoryDetailsRows(width, sections, now)...)
+	rows = append(rows, renderHomeCategoryDetailsRows(width, sectionViews)...)
 	return rows
 }
 
-func renderHomeOverviewRows(width int, sections []domain.HomeCategorySection, now time.Time) []string {
+func renderHomeOverviewRows(width int, sectionViews []homeSectionAgeView) []string {
 	rows := []string{
 		ansiHeader + centerText("overview", width) + ansiReset,
 	}
-	for _, section := range sections {
-		rows = append(rows, renderOverviewRow(section.CategoryName, formatCompactAge(section.LastPostedAt, now), width))
+	for _, sectionView := range sectionViews {
+		rows = append(rows, renderOverviewRow(sectionView.Section.CategoryName, sectionView.CompactAge, width))
 	}
 	return rows
 }
@@ -178,20 +185,32 @@ func renderOverviewRow(label, age string, width int) string {
 	return ansiBlue + label + ansiReset + strings.Repeat(" ", gap) + ansiMagenta + age + ansiReset
 }
 
-func renderHomeCategoryDetailsRows(width int, sections []domain.HomeCategorySection, now time.Time) []string {
-	rows := make([]string, 0, len(sections)*8)
+func renderHomeCategoryDetailsRows(width int, sectionViews []homeSectionAgeView) []string {
+	rows := make([]string, 0, len(sectionViews)*8)
 
-	for idx, section := range sections {
+	for idx, sectionView := range sectionViews {
 		if idx > 0 {
 			rows = append(rows, strings.Repeat(" ", width))
 		}
 
-		rows = append(rows, styleCentered(section.CategoryName, width, ansiBlue))
-		rows = append(rows, centerText("("+formatDetailedCategoryAge(section.LastPostedAt, now)+")", width))
-		rows = append(rows, renderSubcategoryRows(section.SubcategoryNames, width)...)
+		rows = append(rows, styleCentered(sectionView.Section.CategoryName, width, ansiBlue))
+		rows = append(rows, centerText("("+sectionView.DetailedAge+")", width))
+		rows = append(rows, renderSubcategoryRows(sectionView.Section.SubcategoryNames, width)...)
 	}
 
 	return rows
+}
+
+func buildHomeSectionAgeViews(sections []domain.HomeCategorySection, now time.Time) []homeSectionAgeView {
+	views := make([]homeSectionAgeView, 0, len(sections))
+	for _, section := range sections {
+		views = append(views, homeSectionAgeView{
+			Section:     section,
+			CompactAge:  formatCompactAge(section.LastPostedAt, now),
+			DetailedAge: formatDetailedCategoryAge(section.LastPostedAt, now),
+		})
+	}
+	return views
 }
 
 func renderSubcategoryRows(subcategories []string, width int) []string {

@@ -49,6 +49,12 @@ func RenderHomePosts(w io.Writer, posts []domain.Post, sections []domain.HomeCat
 	if err := renderHomeOverviewAndRecent(w, posts, sections, now, homePageWidth); err != nil {
 		return err
 	}
+	if _, err := fmt.Fprintln(w); err != nil {
+		return err
+	}
+	if err := RenderPageFooter(w, PageFooterOptions{Width: homePageWidth}); err != nil {
+		return err
+	}
 
 	return nil
 }

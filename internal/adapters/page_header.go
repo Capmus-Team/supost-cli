@@ -53,9 +53,10 @@ type PageHeaderOptions struct {
 }
 
 var (
-	breadcrumbTaxonomyOnce sync.Once
-	categoryNameByID       map[int64]string
-	subcategoryNameByID    map[int64]string
+	breadcrumbTaxonomyOnce  sync.Once
+	categoryNameByID        map[int64]string
+	subcategoryNameByID     map[int64]string
+	subcategoryCategoryByID map[int64]int64
 )
 
 // RenderPageHeader renders the shared SUPost page header for home/search pages.
@@ -135,10 +136,15 @@ func buildAdaptiveBreadcrumb(location string, breadcrumb BreadcrumbOptions) stri
 func buildAdaptiveBreadcrumbWithTitleLimit(location string, breadcrumb BreadcrumbOptions, titleLimit int) string {
 	parts := []string{strings.TrimSpace(location)}
 
-	if name := lookupCategoryName(breadcrumb.CategoryID); name != "" {
+	categoryID := breadcrumb.CategoryID
+	if categoryID <= 0 && breadcrumb.SubcategoryID > 0 {
+		categoryID = lookupSubcategoryCategoryID(breadcrumb.SubcategoryID)
+	}
+
+	if name := lookupCategoryName(categoryID); name != "" {
 		parts = append(parts, name)
-	} else if breadcrumb.CategoryID > 0 {
-		parts = append(parts, fmt.Sprintf("category %d", breadcrumb.CategoryID))
+	} else if categoryID > 0 {
+		parts = append(parts, fmt.Sprintf("category %d", categoryID))
 	}
 
 	if name := lookupSubcategoryName(breadcrumb.SubcategoryID); name != "" {
@@ -209,10 +215,19 @@ func lookupSubcategoryName(subcategoryID int64) string {
 	return subcategoryNameByID[subcategoryID]
 }
 
+func lookupSubcategoryCategoryID(subcategoryID int64) int64 {
+	loadBreadcrumbTaxonomy()
+	if subcategoryID <= 0 || subcategoryCategoryByID == nil {
+		return 0
+	}
+	return subcategoryCategoryByID[subcategoryID]
+}
+
 func loadBreadcrumbTaxonomy() {
 	breadcrumbTaxonomyOnce.Do(func() {
 		categoryNameByID = make(map[int64]string, 32)
 		subcategoryNameByID = make(map[int64]string, 128)
+		subcategoryCategoryByID = make(map[int64]int64, 128)
 
 		categories, err := readCategorySeedRows()
 		if err == nil {
@@ -233,6 +248,9 @@ func loadBreadcrumbTaxonomy() {
 				name := strings.TrimSpace(row.Name)
 				if row.ID > 0 && name != "" {
 					subcategoryNameByID[row.ID] = name
+				}
+				if row.ID > 0 && row.CategoryID > 0 {
+					subcategoryCategoryByID[row.ID] = row.CategoryID
 				}
 			}
 		}

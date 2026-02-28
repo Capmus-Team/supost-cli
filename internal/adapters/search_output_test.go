@@ -57,3 +57,25 @@ func TestRenderSearchResults_GroupsByDateAndShowsNextPage(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderSearchResults_SubcategoryOnlyInfersParentCategoryInBreadcrumb(t *testing.T) {
+	var out bytes.Buffer
+	result := domain.SearchResultPage{
+		SubcategoryID: 14,
+		Page:          1,
+		PerPage:       100,
+		Posts:         []domain.Post{},
+	}
+
+	if err := RenderSearchResults(&out, result); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	plain := stripANSI(out.String())
+	if !strings.Contains(plain, "SUPost » Stanford, California » for sale » furniture") {
+		t.Fatalf("missing inferred category+subcategory breadcrumb in %q", plain)
+	}
+	if !strings.Contains(plain, "furniture") {
+		t.Fatalf("missing subcategory title in %q", plain)
+	}
+}

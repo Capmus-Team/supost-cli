@@ -95,3 +95,14 @@ func TestRenderPageHeader_RendersAdaptiveBreadcrumbInMeta(t *testing.T) {
 		t.Fatalf("missing timestamp in %q", metaPlain)
 	}
 }
+
+func TestBuildAdaptiveBreadcrumb_InfersCategoryFromSubcategory(t *testing.T) {
+	got := buildAdaptiveBreadcrumb("Stanford, California", BreadcrumbOptions{
+		SubcategoryID: 14,
+	})
+
+	want := "Stanford, California » for sale » furniture"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

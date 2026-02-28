@@ -23,5 +23,6 @@ type ListingStore interface {
 // HomePostStore is the read contract for homepage posts.
 type HomePostStore interface {
 	ListRecentActivePosts(ctx context.Context, limit int) ([]domain.Post, error)
+	ListRecentActivePostsByCategory(ctx context.Context, categoryID int64, limit int) ([]domain.Post, error)
 	ListHomeCategorySections(ctx context.Context) ([]domain.HomeCategorySection, error)
 }

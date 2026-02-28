@@ -34,7 +34,7 @@ type styledWord struct {
 }
 
 // RenderHomePosts renders the terminal homepage list.
-func RenderHomePosts(w io.Writer, posts []domain.Post, sections []domain.HomeCategorySection) error {
+func RenderHomePosts(w io.Writer, posts []domain.Post, featuredPosts []domain.Post, sections []domain.HomeCategorySection) error {
 	now := time.Now()
 
 	if err := RenderPageHeader(w, PageHeaderOptions{
@@ -49,7 +49,7 @@ func RenderHomePosts(w io.Writer, posts []domain.Post, sections []domain.HomeCat
 		return err
 	}
 
-	if err := renderHomeOverviewAndRecent(w, posts, sections, now, homePageWidth); err != nil {
+	if err := renderHomeOverviewAndRecent(w, posts, featuredPosts, sections, now, homePageWidth); err != nil {
 		return err
 	}
 	if _, err := fmt.Fprintln(w); err != nil {
@@ -145,7 +145,7 @@ func renderRecentPostRows(posts []domain.Post, now time.Time, wrapWidth int, sec
 	return rows
 }
 
-func renderHomeRecentAndFeaturedRows(posts []domain.Post, now time.Time, sectionWidth int) []string {
+func renderHomeRecentAndFeaturedRows(posts []domain.Post, featuredPosts []domain.Post, now time.Time, sectionWidth int) []string {
 	recentWidth, featuredWidth := splitHomeContentWidths(sectionWidth)
 	if featuredWidth <= 0 {
 		recentWrap := minInt(homeRecentWidth, recentWidth)
@@ -154,8 +154,11 @@ func renderHomeRecentAndFeaturedRows(posts []domain.Post, now time.Time, section
 
 	recentWrap := minInt(homeRecentWidth, recentWidth)
 	recentRows := renderRecentPostRows(posts, now, recentWrap, recentWidth)
-	featuredPosts := selectFeaturedJobPosts(posts, homeFeaturedLimit)
-	featuredRows := renderFeaturedJobPostRows(featuredPosts, featuredWidth, featuredWidth)
+	featured := selectFeaturedJobPosts(featuredPosts, homeFeaturedLimit)
+	if len(featured) == 0 {
+		featured = selectFeaturedJobPosts(posts, homeFeaturedLimit)
+	}
+	featuredRows := renderFeaturedJobPostRows(featured, featuredWidth, featuredWidth)
 	return combineHomeContentColumns(recentRows, featuredRows, recentWidth, featuredWidth)
 }
 

@@ -109,13 +109,13 @@ var defaultHomeCategoryDefinitions = []homeCategoryDefinition{
 	},
 }
 
-func renderHomeOverviewAndRecent(w io.Writer, posts []domain.Post, sections []domain.HomeCategorySection, now time.Time, width int) error {
+func renderHomeOverviewAndRecent(w io.Writer, posts []domain.Post, featuredPosts []domain.Post, sections []domain.HomeCategorySection, now time.Time, width int) error {
 	leftWidth, rightWidth := calculateStripWidths(width)
 	normalizedSections := normalizeHomeSections(sections)
 	normalizedSections = fillMissingSectionTimes(normalizedSections, posts)
 	sectionViews := buildHomeSectionAgeViews(normalizedSections, now)
 	leftRows := renderHomeSidebarRows(leftWidth, sectionViews)
-	rightRows := renderHomeRecentAndFeaturedRows(posts, now, rightWidth)
+	rightRows := renderHomeRecentAndFeaturedRows(posts, featuredPosts, now, rightWidth)
 
 	totalRows := len(rightRows)
 	if len(leftRows) > totalRows {

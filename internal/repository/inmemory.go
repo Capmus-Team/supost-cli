@@ -73,6 +73,14 @@ func (r *InMemory) Create(_ context.Context, listing *domain.Listing) error {
 }
 
 func (r *InMemory) ListRecentActivePosts(_ context.Context, limit int) ([]domain.Post, error) {
+	return r.listRecentActivePosts(limit, nil), nil
+}
+
+func (r *InMemory) ListRecentActivePostsByCategory(_ context.Context, categoryID int64, limit int) ([]domain.Post, error) {
+	return r.listRecentActivePosts(limit, &categoryID), nil
+}
+
+func (r *InMemory) listRecentActivePosts(limit int, categoryID *int64) []domain.Post {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -82,9 +90,13 @@ func (r *InMemory) ListRecentActivePosts(_ context.Context, limit int) ([]domain
 
 	active := make([]domain.Post, 0, len(r.posts))
 	for _, post := range r.posts {
-		if post.Status == domain.PostStatusActive {
-			active = append(active, post)
+		if post.Status != domain.PostStatusActive {
+			continue
 		}
+		if categoryID != nil && post.CategoryID != *categoryID {
+			continue
+		}
+		active = append(active, post)
 	}
 
 	sort.Slice(active, func(i, j int) bool {
@@ -100,7 +112,7 @@ func (r *InMemory) ListRecentActivePosts(_ context.Context, limit int) ([]domain
 
 	out := make([]domain.Post, len(active))
 	copy(out, active)
-	return out, nil
+	return out
 }
 
 // ListHomeCategorySections returns latest active post times per category.

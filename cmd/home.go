@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const featuredJobPostLimit = 3
+
 var homeCmd = &cobra.Command{
 	Use:   "home",
 	Short: "Render the SUPost home feed",
@@ -37,6 +39,7 @@ var homeCmd = &cobra.Command{
 
 		var (
 			posts        []domain.Post
+			featuredJobs []domain.Post
 			usedCache    bool
 			cacheLoadErr error
 			sections     []domain.HomeCategorySection
@@ -50,10 +53,6 @@ var homeCmd = &cobra.Command{
 			sections, sectionsOK, sectionsErr = getCachedHomeCategorySections(cfg.DatabaseURL, refresh, cacheTTL)
 		}
 
-		if cfg.DatabaseURL != "" && usedCache && sectionsOK {
-			return renderHomeOutput(cmd, cfg.Format, posts, sections)
-		}
-
 		var (
 			repo      service.HomeRepository
 			closeRepo func() error
@@ -62,7 +61,7 @@ var homeCmd = &cobra.Command{
 			pgRepo, err := repository.NewPostgres(cfg.DatabaseURL)
 			if err != nil {
 				if usedCache {
-					return renderHomeOutput(cmd, cfg.Format, posts, nil)
+					return renderHomeOutput(cmd, cfg.Format, posts, nil, sections)
 				}
 				return fmt.Errorf("connecting to postgres: %w", err)
 			}
@@ -106,7 +105,15 @@ var homeCmd = &cobra.Command{
 			fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading category section cache: %v\n", sectionsErr)
 		}
 
-		return renderHomeOutput(cmd, cfg.Format, posts, sections)
+		featuredJobs, err = svc.ListRecentActiveByCategory(cmd.Context(), domain.CategoryJobsOffCampus, featuredJobPostLimit)
+		if err != nil {
+			if cfg.Verbose {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading featured job posts: %v\n", err)
+			}
+			featuredJobs = nil
+		}
+
+		return renderHomeOutput(cmd, cfg.Format, posts, featuredJobs, sections)
 	},
 }
 
@@ -139,12 +146,12 @@ func getCachedHomeCategorySections(databaseURL string, refresh bool, ttl time.Du
 	return sections, ok, nil
 }
 
-func renderHomeOutput(cmd *cobra.Command, format string, posts []domain.Post, sections []domain.HomeCategorySection) error {
+func renderHomeOutput(cmd *cobra.Command, format string, posts []domain.Post, featuredJobs []domain.Post, sections []domain.HomeCategorySection) error {
 	if !cmd.Flags().Changed("format") && (format == "" || format == "json") {
-		return adapters.RenderHomePosts(cmd.OutOrStdout(), posts, sections)
+		return adapters.RenderHomePosts(cmd.OutOrStdout(), posts, featuredJobs, sections)
 	}
 	if format == "text" || format == "table" {
-		return adapters.RenderHomePosts(cmd.OutOrStdout(), posts, sections)
+		return adapters.RenderHomePosts(cmd.OutOrStdout(), posts, featuredJobs, sections)
 	}
 	return adapters.Render(format, posts)
 }

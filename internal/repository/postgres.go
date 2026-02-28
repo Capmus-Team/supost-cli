@@ -117,6 +117,77 @@ LIMIT $2
 	return posts, nil
 }
 
+// ListRecentActivePostsByCategory returns active posts in one category sorted by newest first.
+func (r *Postgres) ListRecentActivePostsByCategory(ctx context.Context, categoryID int64, limit int) ([]domain.Post, error) {
+	limit = clampRecentLimit(limit)
+
+	const query = `
+SELECT
+	id,
+	COALESCE(category_id, 0) AS category_id,
+	COALESCE(subcategory_id, 0) AS subcategory_id,
+	COALESCE(email, '') AS email,
+	COALESCE(name, '') AS name,
+	COALESCE(status, 0) AS status,
+	COALESCE(time_posted, 0) AS time_posted,
+	COALESCE(time_posted_at, to_timestamp(0)) AS time_posted_at,
+	COALESCE(price::float8, 0) AS price,
+	(price IS NOT NULL) AS has_price,
+	(
+		COALESCE(photo1_file_name, '') <> '' OR
+		COALESCE(photo2_file_name, '') <> '' OR
+		COALESCE(photo3_file_name, '') <> '' OR
+		COALESCE(photo4_file_name, '') <> '' OR
+		COALESCE(image_source1, '') <> '' OR
+		COALESCE(image_source2, '') <> '' OR
+		COALESCE(image_source3, '') <> '' OR
+		COALESCE(image_source4, '') <> ''
+	) AS has_image,
+	COALESCE(created_at, now()) AS created_at,
+	COALESCE(updated_at, created_at, now()) AS updated_at
+FROM public.post
+WHERE status = $1
+  AND category_id = $2
+ORDER BY time_posted DESC NULLS LAST, id DESC
+LIMIT $3
+`
+
+	rows, err := r.db.QueryContext(ctx, query, domain.PostStatusActive, categoryID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("querying recent active posts by category: %w", err)
+	}
+	defer rows.Close()
+
+	posts := make([]domain.Post, 0, limit)
+	for rows.Next() {
+		var post domain.Post
+		if err := rows.Scan(
+			&post.ID,
+			&post.CategoryID,
+			&post.SubcategoryID,
+			&post.Email,
+			&post.Name,
+			&post.Status,
+			&post.TimePosted,
+			&post.TimePostedAt,
+			&post.Price,
+			&post.HasPrice,
+			&post.HasImage,
+			&post.CreatedAt,
+			&post.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scanning post row: %w", err)
+		}
+		posts = append(posts, post)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating post rows: %w", err)
+	}
+
+	return posts, nil
+}
+
 // ListHomeCategorySections returns latest active post time per category.
 // Taxonomy (category/subcategory names) is loaded from cached/local data.
 func (r *Postgres) ListHomeCategorySections(ctx context.Context) ([]domain.HomeCategorySection, error) {

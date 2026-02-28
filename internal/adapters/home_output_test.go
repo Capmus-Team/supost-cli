@@ -308,7 +308,7 @@ func TestRenderHomeRecentAndFeaturedRows_ContainsFeaturedSection(t *testing.T) {
 		{ID: 4, Name: "Software and hardware engineers", CategoryID: domain.CategoryJobsOffCampus, Status: domain.PostStatusActive, TimePosted: now.Add(-40 * time.Minute).Unix()},
 	}
 
-	rows := renderHomeRecentAndFeaturedRows(posts, now, 80)
+	rows := renderHomeRecentAndFeaturedRows(posts, nil, now, 80)
 	if len(rows) == 0 {
 		t.Fatalf("expected rendered rows")
 	}
@@ -330,6 +330,38 @@ func TestRenderHomeRecentAndFeaturedRows_ContainsFeaturedSection(t *testing.T) {
 	} {
 		if !strings.Contains(joined, needle) {
 			t.Fatalf("missing %q in home content rows", needle)
+		}
+	}
+}
+
+func TestRenderHomeRecentAndFeaturedRows_UsesExplicitFeaturedPosts(t *testing.T) {
+	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.UTC)
+	posts := []domain.Post{
+		{ID: 1, Name: "Recent housing post", CategoryID: domain.CategoryHousing, Status: domain.PostStatusActive, TimePosted: now.Add(-10 * time.Minute).Unix()},
+	}
+	featuredPosts := []domain.Post{
+		{ID: 11, Name: "AI Algorithm Engineer", CategoryID: domain.CategoryJobsOffCampus, Status: domain.PostStatusActive, TimePosted: now.Add(-20 * time.Minute).Unix()},
+		{ID: 12, Name: "Dog Sitter During Spring Break", CategoryID: domain.CategoryJobsOffCampus, Status: domain.PostStatusActive, TimePosted: now.Add(-30 * time.Minute).Unix()},
+		{ID: 13, Name: "Software and hardware engineers", CategoryID: domain.CategoryJobsOffCampus, Status: domain.PostStatusActive, TimePosted: now.Add(-40 * time.Minute).Unix()},
+	}
+
+	rows := renderHomeRecentAndFeaturedRows(posts, featuredPosts, now, 80)
+	joined := strings.Join(func() []string {
+		out := make([]string, 0, len(rows))
+		for _, row := range rows {
+			out = append(out, stripANSI(row))
+		}
+		return out
+	}(), "\n")
+
+	for _, needle := range []string{
+		"featured job posts",
+		"AI Algorithm Engineer",
+		"Dog Sitter During Spring Break",
+		"Software and hardware engineers",
+	} {
+		if !strings.Contains(joined, needle) {
+			t.Fatalf("missing %q in explicit featured section", needle)
 		}
 	}
 }

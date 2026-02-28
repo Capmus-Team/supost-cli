@@ -45,29 +45,9 @@ func RenderHomePosts(w io.Writer, posts []domain.Post) error {
 	if err := renderHomePhotoStrip(w, posts, now, homePageWidth); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "%s%s%s\n", ansiHeader, renderHomeHeader("recently posted", homePageWidth), ansiReset); err != nil {
+
+	if err := renderHomeOverviewAndRecent(w, posts, now, homePageWidth); err != nil {
 		return err
-	}
-
-	for _, post := range posts {
-		title := formatPostTitle(post)
-		email := formatDisplayEmail(post.Email)
-		timeAgo := formatRelativeTime(postTimestamp(post), now)
-
-		words := make([]styledWord, 0, 16)
-		words = append(words, splitStyledWords(title, ansiBlue)...)
-		words = append(words, splitStyledWords(email, ansiGray)...)
-		if post.HasImage {
-			words = append(words, styledWord{text: "📷"})
-		}
-		words = append(words, splitStyledWords(timeAgo, ansiMagenta)...)
-
-		lines := wrapStyledWords(words, homeRecentWidth)
-		for _, lineWords := range lines {
-			if _, err := fmt.Fprintln(w, renderStyledLine(lineWords)); err != nil {
-				return err
-			}
-		}
 	}
 
 	return nil
@@ -130,6 +110,101 @@ func renderHomePhotoStrip(w io.Writer, posts []domain.Post, now time.Time, width
 	return nil
 }
 
+func renderHomeOverviewAndRecent(w io.Writer, posts []domain.Post, now time.Time, width int) error {
+	leftWidth, rightWidth := calculateStripWidths(width)
+	leftRows := renderHomeOverviewRows(leftWidth)
+	recentWrapWidth := minInt(homeRecentWidth, rightWidth)
+	rightRows := renderRecentPostRows(posts, now, recentWrapWidth, rightWidth)
+
+	totalRows := len(rightRows)
+	if len(leftRows) > totalRows {
+		totalRows = len(leftRows)
+	}
+
+	for i := 0; i < totalRows; i++ {
+		left := strings.Repeat(" ", leftWidth)
+		right := strings.Repeat(" ", rightWidth)
+		if i < len(leftRows) {
+			left = leftRows[i]
+		}
+		if i < len(rightRows) {
+			right = rightRows[i]
+		}
+		if _, err := fmt.Fprintln(w, left+strings.Repeat(" ", homeStripGap)+right); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func renderHomeOverviewRows(width int) []string {
+	rows := []string{
+		ansiHeader + centerText("overview", width) + ansiReset,
+		renderOverviewRow("housing", "2 hours", width),
+		renderOverviewRow("for sale", "5 hours", width),
+		renderOverviewRow("jobs", "22 hours", width),
+		renderOverviewRow("personals", "19 days", width),
+		renderOverviewRow("campus job", "3 hours", width),
+		renderOverviewRow("community", "3 hours", width),
+		renderOverviewRow("services", "3 hours", width),
+	}
+	return rows
+}
+
+func renderOverviewRow(label, age string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+
+	label = strings.TrimSpace(label)
+	age = strings.TrimSpace(age)
+	labelLen := len([]rune(label))
+	ageLen := len([]rune(age))
+
+	minGap := 1
+	if labelLen+minGap+ageLen > width {
+		available := width - ageLen - minGap
+		if available < 1 {
+			return fitText(label+" "+age, width)
+		}
+		label = fitText(label, available)
+		labelLen = len([]rune(label))
+	}
+
+	gap := width - labelLen - ageLen
+	if gap < 1 {
+		gap = 1
+	}
+
+	return ansiBlue + label + ansiReset + strings.Repeat(" ", gap) + ansiMagenta + age + ansiReset
+}
+
+func renderRecentPostRows(posts []domain.Post, now time.Time, wrapWidth int, sectionWidth int) []string {
+	rows := make([]string, 0, len(posts)+1)
+	rows = append(rows, ansiHeader+renderHomeHeader("recently posted", sectionWidth)+ansiReset)
+
+	for _, post := range posts {
+		title := formatPostTitle(post)
+		email := formatDisplayEmail(post.Email)
+		timeAgo := formatRelativeTime(postTimestamp(post), now)
+
+		words := make([]styledWord, 0, 16)
+		words = append(words, splitStyledWords(title, ansiBlue)...)
+		words = append(words, splitStyledWords(email, ansiGray)...)
+		if post.HasImage {
+			words = append(words, styledWord{text: "📷"})
+		}
+		words = append(words, splitStyledWords(timeAgo, ansiMagenta)...)
+
+		lines := wrapStyledWords(words, wrapWidth)
+		for _, lineWords := range lines {
+			rows = append(rows, renderStyledLine(lineWords))
+		}
+	}
+
+	return rows
+}
+
 func calculateStripWidths(totalWidth int) (calloutWidth, rightWidth int) {
 	calloutWidth = homeCalloutWidth
 	if totalWidth <= 0 {
@@ -189,6 +264,13 @@ func centerText(text string, width int) string {
 	left := padding / 2
 	right := padding - left
 	return strings.Repeat(" ", left) + trimmed + strings.Repeat(" ", right)
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func selectRecentImagePosts(posts []domain.Post, limit int) []domain.Post {

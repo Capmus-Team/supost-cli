@@ -171,6 +171,65 @@ func TestCenterText_ProducesFixedWidth(t *testing.T) {
 	}
 }
 
+func TestRenderHomeOverviewRows_ContainsRequestedCopy(t *testing.T) {
+	rows := renderHomeOverviewRows(28)
+	if len(rows) != 8 {
+		t.Fatalf("expected 8 overview rows, got %d", len(rows))
+	}
+
+	joined := strings.Join([]string{
+		stripANSI(rows[0]),
+		stripANSI(rows[1]),
+		stripANSI(rows[2]),
+		stripANSI(rows[3]),
+		stripANSI(rows[4]),
+		stripANSI(rows[5]),
+		stripANSI(rows[6]),
+		stripANSI(rows[7]),
+	}, "\n")
+	for _, needle := range []string{
+		"overview",
+		"housing",
+		"for sale",
+		"jobs",
+		"personals",
+		"campus job",
+		"community",
+		"services",
+		"19 days",
+	} {
+		if !strings.Contains(joined, needle) {
+			t.Fatalf("missing %q in overview block", needle)
+		}
+	}
+}
+
+func TestRenderRecentPostRows_RespectsWrapWidth(t *testing.T) {
+	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.UTC)
+	rows := renderRecentPostRows([]domain.Post{
+		{
+			ID:         1,
+			Name:       "Very long listing title to ensure the rendered text wraps correctly across lines",
+			Email:      "person@stanford.edu",
+			HasPrice:   true,
+			Price:      100,
+			Status:     domain.PostStatusActive,
+			TimePosted: now.Add(-2 * time.Hour).Unix(),
+		},
+	}, now, 20, 40)
+
+	if len(rows) < 2 {
+		t.Fatalf("expected header + body rows, got %d", len(rows))
+	}
+
+	for i := 1; i < len(rows); i++ {
+		plain := stripANSI(rows[i])
+		if got := len([]rune(plain)); got > 20 {
+			t.Fatalf("row %d width exceeds wrap width: %d", i, got)
+		}
+	}
+}
+
 func stripANSI(s string) string {
 	// Minimal scrubber for tests.
 	out := make([]rune, 0, len(s))

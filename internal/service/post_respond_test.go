@@ -122,3 +122,33 @@ func TestPostRespondService_Validation(t *testing.T) {
 		t.Fatalf("unexpected error %v", err)
 	}
 }
+
+func TestPostRespondService_ValidationReplyToRequired(t *testing.T) {
+	svc := NewPostRespondService(&mockPostRespondRepo{})
+	_, err := svc.Respond(context.Background(), domain.PostRespondSubmission{
+		PostID:  130031802,
+		Message: "Hello, I want to buy your bike",
+		ReplyTo: "",
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPostRespondSender{})
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "reply_to is required") {
+		t.Fatalf("unexpected error %v", err)
+	}
+}
+
+func TestPostRespondService_ValidationReplyToEmailFormat(t *testing.T) {
+	svc := NewPostRespondService(&mockPostRespondRepo{})
+	_, err := svc.Respond(context.Background(), domain.PostRespondSubmission{
+		PostID:  130031802,
+		Message: "Hello, I want to buy your bike",
+		ReplyTo: "gwientjesgmail.com",
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPostRespondSender{})
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "reply_to must be a valid email") {
+		t.Fatalf("unexpected error %v", err)
+	}
+}

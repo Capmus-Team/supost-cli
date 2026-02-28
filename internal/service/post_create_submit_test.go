@@ -236,6 +236,64 @@ func TestPostCreateService_Submit_PriceForbiddenForPersonals(t *testing.T) {
 	}
 }
 
+func TestPostCreateService_Submit_PriceForbiddenBeforeSubcategoryMismatch(t *testing.T) {
+	repo := &mockPostCreateSubmitRepo{
+		categories: []domain.Category{
+			{ID: 5, Name: "for sale/wanted", ShortName: "for sale"},
+			{ID: 8, Name: "personals/dating", ShortName: "personals"},
+		},
+		subcategories: []domain.Subcategory{
+			{ID: 14, CategoryID: 5, Name: "furniture"},
+			{ID: 130, CategoryID: 8, Name: "friendship"},
+		},
+	}
+	svc := NewPostCreateService(repo)
+
+	_, err := svc.Submit(context.Background(), domain.PostCreateSubmission{
+		CategoryID:    8,
+		SubcategoryID: 14,
+		Name:          "Yellow Orange bike for sale",
+		Body:          "Pick up on campus.",
+		Email:         "wientjes@alumni.stanford.edu",
+		Price:         105,
+		PriceProvided: true,
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "Price is not allowed for this category.") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPostCreateService_Submit_SubcategoryMismatchWithoutPrice(t *testing.T) {
+	repo := &mockPostCreateSubmitRepo{
+		categories: []domain.Category{
+			{ID: 5, Name: "for sale/wanted", ShortName: "for sale"},
+			{ID: 8, Name: "personals/dating", ShortName: "personals"},
+		},
+		subcategories: []domain.Subcategory{
+			{ID: 14, CategoryID: 5, Name: "furniture"},
+			{ID: 130, CategoryID: 8, Name: "friendship"},
+		},
+	}
+	svc := NewPostCreateService(repo)
+
+	_, err := svc.Submit(context.Background(), domain.PostCreateSubmission{
+		CategoryID:    8,
+		SubcategoryID: 14,
+		Name:          "Yellow Orange bike for sale",
+		Body:          "Pick up on campus.",
+		Email:         "wientjes@alumni.stanford.edu",
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
+	if err == nil {
+		t.Fatalf("expected subcategory mismatch error")
+	}
+	if !strings.Contains(err.Error(), "subcategory 14 not found in category 8") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestPostCreateService_Submit_PersonalsNoPriceAllowed(t *testing.T) {
 	repo := &mockPostCreateSubmitRepo{
 		categories: []domain.Category{{ID: 8, Name: "personals/dating", ShortName: "personals"}},

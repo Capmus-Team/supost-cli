@@ -41,13 +41,21 @@ func RenderSearchResults(w io.Writer, result domain.SearchResultPage) error {
 		return err
 	}
 
+	paginationLabels := make([]string, 0, 2)
+	if result.Page > 1 {
+		paginationLabels = append(paginationLabels, fmt.Sprintf("previous %d posts", result.PerPage))
+	}
 	if result.HasMore {
+		paginationLabels = append(paginationLabels, fmt.Sprintf("next %d posts", result.PerPage))
+	}
+	if len(paginationLabels) > 0 {
 		if _, err := fmt.Fprintln(w); err != nil {
 			return err
 		}
-		nextLabel := fmt.Sprintf("next %d posts", result.PerPage)
-		if _, err := fmt.Fprintln(w, styleCentered(nextLabel, searchPageWidth, ansiBlue)); err != nil {
-			return err
+		for _, label := range paginationLabels {
+			if _, err := fmt.Fprintln(w, styleCentered(label, searchPageWidth, ansiBlue)); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -58,6 +66,11 @@ func RenderSearchResults(w io.Writer, result domain.SearchResultPage) error {
 }
 
 func renderSearchGroupedPosts(w io.Writer, posts []domain.Post, width int) error {
+	if len(posts) == 0 {
+		_, err := fmt.Fprintln(w, styleCentered("No posts found for this page.", width, ansiGray))
+		return err
+	}
+
 	lastHeader := ""
 	for _, post := range posts {
 		header := formatSearchDateHeader(post)

@@ -62,3 +62,16 @@ func TestSearchService_Search_ForwardsFilters(t *testing.T) {
 		t.Fatalf("expected forwarded category/subcategory, got %d/%d", repo.categoryID, repo.subcategoryID)
 	}
 }
+
+func TestSearchService_Search_ForwardsPageAndPerPage(t *testing.T) {
+	repo := &mockSearchRepo{}
+	svc := NewSearchService(repo)
+
+	_, err := svc.Search(context.Background(), 5, 14, 3, 30)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.page != 3 || repo.perPage != 30 {
+		t.Fatalf("expected forwarded page/per_page 3/30, got %d/%d", repo.page, repo.perPage)
+	}
+}

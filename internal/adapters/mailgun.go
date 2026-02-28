@@ -52,23 +52,36 @@ func NewMailgunSender(apiBase, domain, apiKey, defaultFrom string, timeout time.
 
 // SendPublishEmail sends one plain-text publish message.
 func (m *MailgunSender) SendPublishEmail(ctx context.Context, msg domain.PublishEmailMessage) error {
-	to := strings.TrimSpace(msg.To)
-	subject := strings.TrimSpace(msg.Subject)
-	text := strings.TrimSpace(msg.Text)
+	return m.sendTextEmail(ctx, msg.From, msg.To, "", msg.Subject, msg.Text)
+}
+
+// SendResponseEmail sends one plain-text response message with Reply-To.
+func (m *MailgunSender) SendResponseEmail(ctx context.Context, msg domain.ResponseEmailMessage) error {
+	return m.sendTextEmail(ctx, msg.From, msg.To, msg.ReplyTo, msg.Subject, msg.Text)
+}
+
+func (m *MailgunSender) sendTextEmail(ctx context.Context, fromRaw, toRaw, replyToRaw, subjectRaw, textRaw string) error {
+	to := strings.TrimSpace(toRaw)
+	subject := strings.TrimSpace(subjectRaw)
+	text := strings.TrimSpace(textRaw)
 	if to == "" || subject == "" || text == "" {
 		return fmt.Errorf("mailgun message to/subject/text are required")
 	}
 
-	from := strings.TrimSpace(msg.From)
+	from := strings.TrimSpace(fromRaw)
 	if from == "" {
 		from = m.defaultFrom
 	}
+	replyTo := strings.TrimSpace(replyToRaw)
 
 	form := url.Values{}
 	form.Set("from", from)
 	form.Set("to", to)
 	form.Set("subject", subject)
 	form.Set("text", text)
+	if replyTo != "" {
+		form.Set("h:Reply-To", replyTo)
+	}
 
 	endpoint := fmt.Sprintf("%s/v3/%s/messages", m.apiBase, m.domain)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))

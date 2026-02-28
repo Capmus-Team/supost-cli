@@ -67,6 +67,42 @@ func TestMailgunSender_SendPublishEmail(t *testing.T) {
 	}
 }
 
+func TestMailgunSender_SendResponseEmail_UsesReplyTo(t *testing.T) {
+	var capturedBody string
+	sender, err := NewMailgunSender("https://api.mailgun.net", "mg.supost.com", "test-key", "response@mg.supost.com", 2*time.Second)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	sender.client = &http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			body, _ := io.ReadAll(r.Body)
+			capturedBody = string(body)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("ok")),
+				Header:     make(http.Header),
+			}, nil
+		}),
+	}
+
+	err = sender.SendResponseEmail(context.Background(), domain.ResponseEmailMessage{
+		To:      "owner@stanford.edu",
+		ReplyTo: "gwientjes@gmail.com",
+		Subject: "SUpost - gwientjes@gmail.com response: Looking for a buddy",
+		Text:    "Reply to: gwientjes@gmail.com",
+	})
+	if err != nil {
+		t.Fatalf("unexpected send error: %v", err)
+	}
+	values, err := url.ParseQuery(capturedBody)
+	if err != nil {
+		t.Fatalf("unexpected parse error: %v", err)
+	}
+	if values.Get("h:Reply-To") != "gwientjes@gmail.com" {
+		t.Fatalf("missing Reply-To header in payload")
+	}
+}
+
 func TestMailgunSender_SendPublishEmail_Non2xx(t *testing.T) {
 	sender, err := NewMailgunSender("https://api.mailgun.net", "mg.supost.com", "test-key", "response@mg.supost.com", 2*time.Second)
 	if err != nil {

@@ -25,6 +25,7 @@ func (r *InMemory) CreatePendingPost(_ context.Context, submission domain.PostCr
 		Name:           submission.Name,
 		Body:           submission.Body,
 		Status:         0,
+		AccessToken:    submission.AccessToken,
 		TimePosted:     now.Unix(),
 		TimeModified:   now.Unix(),
 		TimePostedAt:   now,

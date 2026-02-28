@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -21,8 +22,10 @@ const (
 	homeRecentWidth    = 54
 	homeStripGap       = 2
 	homeCalloutWidth   = 36
+	homeContentGap     = 2
 	homePhotoColumns   = 4
 	homePhotoColumnGap = 2
+	homeFeaturedLimit  = 3
 )
 
 type styledWord struct {
@@ -140,6 +143,151 @@ func renderRecentPostRows(posts []domain.Post, now time.Time, wrapWidth int, sec
 	}
 
 	return rows
+}
+
+func renderHomeRecentAndFeaturedRows(posts []domain.Post, now time.Time, sectionWidth int) []string {
+	recentWidth, featuredWidth := splitHomeContentWidths(sectionWidth)
+	if featuredWidth <= 0 {
+		recentWrap := minInt(homeRecentWidth, recentWidth)
+		return renderRecentPostRows(posts, now, recentWrap, recentWidth)
+	}
+
+	recentWrap := minInt(homeRecentWidth, recentWidth)
+	recentRows := renderRecentPostRows(posts, now, recentWrap, recentWidth)
+	featuredPosts := selectFeaturedJobPosts(posts, homeFeaturedLimit)
+	featuredRows := renderFeaturedJobPostRows(featuredPosts, featuredWidth, featuredWidth)
+	return combineHomeContentColumns(recentRows, featuredRows, recentWidth, featuredWidth)
+}
+
+func renderFeaturedJobPostRows(posts []domain.Post, wrapWidth int, sectionWidth int) []string {
+	rows := make([]string, 0, len(posts)+1)
+	rows = append(rows, ansiHeader+renderHomeHeader("featured job posts", sectionWidth)+ansiReset)
+
+	for _, post := range posts {
+		title := strings.TrimSpace(post.Name)
+		if title == "" {
+			title = "(untitled post)"
+		}
+		words := splitStyledWords(title, ansiBlue)
+		if email := formatDisplayEmail(post.Email); email != "" {
+			words = append(words, splitStyledWords(email, ansiGray)...)
+		}
+		lines := wrapStyledWords(words, wrapWidth)
+		for _, lineWords := range lines {
+			rows = append(rows, renderStyledLine(lineWords))
+		}
+	}
+
+	return rows
+}
+
+func selectFeaturedJobPosts(posts []domain.Post, limit int) []domain.Post {
+	if limit <= 0 || len(posts) == 0 {
+		return nil
+	}
+
+	filtered := make([]domain.Post, 0, limit)
+	for _, post := range posts {
+		if post.Status != domain.PostStatusActive {
+			continue
+		}
+		if post.CategoryID != domain.CategoryJobsOffCampus {
+			continue
+		}
+		filtered = append(filtered, post)
+	}
+
+	sort.Slice(filtered, func(i, j int) bool {
+		iTime := featuredPostSortUnix(filtered[i])
+		jTime := featuredPostSortUnix(filtered[j])
+		if iTime == jTime {
+			return filtered[i].ID > filtered[j].ID
+		}
+		return iTime > jTime
+	})
+
+	if len(filtered) > limit {
+		filtered = filtered[:limit]
+	}
+	return filtered
+}
+
+func featuredPostSortUnix(post domain.Post) int64 {
+	if ts := postTimestamp(post); !ts.IsZero() {
+		return ts.Unix()
+	}
+	return 0
+}
+
+func splitHomeContentWidths(totalWidth int) (int, int) {
+	if totalWidth <= 0 {
+		return 0, 0
+	}
+	if totalWidth <= homeContentGap+2 {
+		return totalWidth, 0
+	}
+
+	usable := totalWidth - homeContentGap
+	left := usable / 2
+	right := usable - left
+	if left < 1 || right < 1 {
+		return totalWidth, 0
+	}
+	return left, right
+}
+
+func combineHomeContentColumns(leftRows, rightRows []string, leftWidth, rightWidth int) []string {
+	totalRows := len(leftRows)
+	if len(rightRows) > totalRows {
+		totalRows = len(rightRows)
+	}
+
+	gap := strings.Repeat(" ", homeContentGap)
+	leftBlank := strings.Repeat(" ", leftWidth)
+	rightBlank := strings.Repeat(" ", rightWidth)
+	rows := make([]string, 0, totalRows)
+	for i := 0; i < totalRows; i++ {
+		left := leftBlank
+		right := rightBlank
+		if i < len(leftRows) {
+			left = padANSIVisibleWidth(leftRows[i], leftWidth)
+		}
+		if i < len(rightRows) {
+			right = padANSIVisibleWidth(rightRows[i], rightWidth)
+		}
+		rows = append(rows, left+gap+right)
+	}
+	return rows
+}
+
+func padANSIVisibleWidth(value string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	visible := ansiVisibleRuneLen(value)
+	if visible >= width {
+		return value
+	}
+	return value + strings.Repeat(" ", width-visible)
+}
+
+func ansiVisibleRuneLen(value string) int {
+	length := 0
+	inEscape := false
+	for _, r := range value {
+		if r == 0x1b {
+			inEscape = true
+			continue
+		}
+		if inEscape {
+			if r == 'm' {
+				inEscape = false
+			}
+			continue
+		}
+		length++
+	}
+	return length
 }
 
 func selectRecentImagePosts(posts []domain.Post, limit int) []domain.Post {

@@ -115,8 +115,7 @@ func renderHomeOverviewAndRecent(w io.Writer, posts []domain.Post, sections []do
 	normalizedSections = fillMissingSectionTimes(normalizedSections, posts)
 	sectionViews := buildHomeSectionAgeViews(normalizedSections, now)
 	leftRows := renderHomeSidebarRows(leftWidth, sectionViews)
-	recentWrapWidth := minInt(homeRecentWidth, rightWidth)
-	rightRows := renderRecentPostRows(posts, now, recentWrapWidth, rightWidth)
+	rightRows := renderHomeRecentAndFeaturedRows(posts, now, rightWidth)
 
 	totalRows := len(rightRows)
 	if len(leftRows) > totalRows {

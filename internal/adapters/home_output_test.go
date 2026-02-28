@@ -279,6 +279,61 @@ func TestRenderRecentPostRows_RespectsWrapWidth(t *testing.T) {
 	}
 }
 
+func TestSelectFeaturedJobPosts_FiltersActiveJobsAndOrdersNewest(t *testing.T) {
+	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.UTC)
+	posts := []domain.Post{
+		{ID: 1, CategoryID: domain.CategoryHousing, Status: domain.PostStatusActive, TimePosted: now.Add(-1 * time.Hour).Unix()},
+		{ID: 2, CategoryID: domain.CategoryJobsOffCampus, Status: domain.PostStatusActive, TimePosted: now.Add(-4 * time.Hour).Unix()},
+		{ID: 3, CategoryID: domain.CategoryJobsOffCampus, Status: 0, TimePosted: now.Add(-2 * time.Hour).Unix()},
+		{ID: 4, CategoryID: domain.CategoryJobsOffCampus, Status: domain.PostStatusActive, TimePosted: now.Add(-3 * time.Hour).Unix()},
+		{ID: 5, CategoryID: domain.CategoryJobsOffCampus, Status: domain.PostStatusActive, TimePosted: now.Add(-30 * time.Minute).Unix()},
+		{ID: 6, CategoryID: domain.CategoryJobsOffCampus, Status: domain.PostStatusActive, TimePosted: now.Add(-20 * time.Minute).Unix()},
+	}
+
+	got := selectFeaturedJobPosts(posts, 3)
+	if len(got) != 3 {
+		t.Fatalf("expected 3 posts, got %d", len(got))
+	}
+	if got[0].ID != 6 || got[1].ID != 5 || got[2].ID != 4 {
+		t.Fatalf("unexpected post order: got ids [%d, %d, %d]", got[0].ID, got[1].ID, got[2].ID)
+	}
+}
+
+func TestRenderHomeRecentAndFeaturedRows_ContainsFeaturedSection(t *testing.T) {
+	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.UTC)
+	posts := []domain.Post{
+		{ID: 1, Name: "Recent housing post", CategoryID: domain.CategoryHousing, Status: domain.PostStatusActive, Email: "person@stanford.edu", TimePosted: now.Add(-10 * time.Minute).Unix()},
+		{ID: 2, Name: "AI Algorithm Engineer", CategoryID: domain.CategoryJobsOffCampus, Status: domain.PostStatusActive, TimePosted: now.Add(-20 * time.Minute).Unix()},
+		{ID: 3, Name: "Dog Sitter During Spring Break", CategoryID: domain.CategoryJobsOffCampus, Status: domain.PostStatusActive, Email: "helper@stanford.edu", TimePosted: now.Add(-30 * time.Minute).Unix()},
+		{ID: 4, Name: "Software and hardware engineers", CategoryID: domain.CategoryJobsOffCampus, Status: domain.PostStatusActive, TimePosted: now.Add(-40 * time.Minute).Unix()},
+	}
+
+	rows := renderHomeRecentAndFeaturedRows(posts, now, 80)
+	if len(rows) == 0 {
+		t.Fatalf("expected rendered rows")
+	}
+
+	joined := strings.Join(func() []string {
+		out := make([]string, 0, len(rows))
+		for _, row := range rows {
+			out = append(out, stripANSI(row))
+		}
+		return out
+	}(), "\n")
+
+	for _, needle := range []string{
+		"recently posted",
+		"featured job posts",
+		"AI Algorithm Engineer",
+		"Dog Sitter During Spring Break",
+		"Software and hardware engineers",
+	} {
+		if !strings.Contains(joined, needle) {
+			t.Fatalf("missing %q in home content rows", needle)
+		}
+	}
+}
+
 func stripANSI(s string) string {
 	// Minimal scrubber for tests.
 	out := make([]rune, 0, len(s))

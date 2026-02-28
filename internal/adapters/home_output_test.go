@@ -135,6 +135,42 @@ func TestRenderWrappedColumnRows_ContainsNoEllipsis(t *testing.T) {
 	}
 }
 
+func TestRenderHomeCalloutRows_ContainsRequestedCopy(t *testing.T) {
+	rows := renderHomeCalloutRows(28)
+	if len(rows) != 8 {
+		t.Fatalf("expected 8 rows, got %d", len(rows))
+	}
+
+	want := []string{
+		"post to classifieds",
+		"@stanford.edu required",
+		"post a job",
+		"post housing",
+		"post a car",
+		"open for all emails",
+	}
+	plain := make([]string, 0, len(rows))
+	for _, row := range rows {
+		plain = append(plain, stripANSI(row))
+	}
+	joined := strings.Join(plain, "\n")
+	for _, needle := range want {
+		if !strings.Contains(joined, needle) {
+			t.Fatalf("missing %q in callout rows", needle)
+		}
+	}
+}
+
+func TestCenterText_ProducesFixedWidth(t *testing.T) {
+	got := centerText("post housing", 28)
+	if len([]rune(got)) != 28 {
+		t.Fatalf("expected width 28, got %d", len([]rune(got)))
+	}
+	if strings.TrimSpace(got) != "post housing" {
+		t.Fatalf("unexpected centered content %q", got)
+	}
+}
+
 func stripANSI(s string) string {
 	// Minimal scrubber for tests.
 	out := make([]rune, 0, len(s))

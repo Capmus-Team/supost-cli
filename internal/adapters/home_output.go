@@ -17,8 +17,12 @@ const (
 	ansiMagenta = "\033[0;35m"
 	ansiHeader  = "\033[48;5;153m\033[1;34m"
 
-	homePageWidth   = 118
-	homeRecentWidth = 54
+	homePageWidth      = 118
+	homeRecentWidth    = 54
+	homeStripGap       = 2
+	homeCalloutWidth   = 28
+	homePhotoColumns   = 4
+	homePhotoColumnGap = 2
 )
 
 type styledWord struct {
@@ -81,12 +85,14 @@ func renderHomeHeader(text string, width int) string {
 }
 
 func renderHomePhotoStrip(w io.Writer, posts []domain.Post, now time.Time, width int) error {
-	photos := selectRecentImagePosts(posts, 4)
+	photos := selectRecentImagePosts(posts, homePhotoColumns)
 	if len(photos) == 0 {
 		return nil
 	}
 
-	columnWidth := photoColumnWidth(width, 4, 2)
+	calloutWidth, rightWidth := calculateStripWidths(width)
+	columnWidth := photoColumnWidth(rightWidth, homePhotoColumns, homePhotoColumnGap)
+
 	imageURLs := make([]string, 0, len(photos))
 	titles := make([]string, 0, len(photos))
 	timeAgo := make([]string, 0, len(photos))
@@ -97,18 +103,92 @@ func renderHomePhotoStrip(w io.Writer, posts []domain.Post, now time.Time, width
 		timeAgo = append(timeAgo, formatRelativeTime(postTimestamp(post), now))
 	}
 
-	for _, row := range renderWrappedColumnRows(imageURLs, columnWidth, "", 4) {
-		if _, err := fmt.Fprintln(w, row); err != nil {
+	rightRows := make([]string, 0, 8)
+	rightRows = append(rightRows, renderWrappedColumnRows(imageURLs, columnWidth, "", homePhotoColumns)...)
+	rightRows = append(rightRows, renderColumnRow(titles, columnWidth, ansiBlue, homePhotoColumns))
+	rightRows = append(rightRows, renderColumnRow(timeAgo, columnWidth, ansiMagenta, homePhotoColumns))
+
+	leftRows := renderHomeCalloutRows(calloutWidth)
+	totalRows := len(rightRows)
+	if len(leftRows) > totalRows {
+		totalRows = len(leftRows)
+	}
+
+	for i := 0; i < totalRows; i++ {
+		left := strings.Repeat(" ", calloutWidth)
+		right := strings.Repeat(" ", rightWidth)
+		if i < len(leftRows) {
+			left = leftRows[i]
+		}
+		if i < len(rightRows) {
+			right = rightRows[i]
+		}
+		if _, err := fmt.Fprintln(w, left+strings.Repeat(" ", homeStripGap)+right); err != nil {
 			return err
 		}
 	}
-	if _, err := fmt.Fprintln(w, renderColumnRow(titles, columnWidth, ansiBlue, 4)); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintln(w, renderColumnRow(timeAgo, columnWidth, ansiMagenta, 4)); err != nil {
-		return err
-	}
 	return nil
+}
+
+func calculateStripWidths(totalWidth int) (calloutWidth, rightWidth int) {
+	calloutWidth = homeCalloutWidth
+	if totalWidth <= 0 {
+		return calloutWidth, 0
+	}
+
+	minCallout := 18
+	maxCallout := totalWidth / 2
+	if maxCallout < minCallout {
+		maxCallout = minCallout
+	}
+	if calloutWidth > maxCallout {
+		calloutWidth = maxCallout
+	}
+	if calloutWidth < minCallout {
+		calloutWidth = minCallout
+	}
+
+	rightWidth = totalWidth - calloutWidth - homeStripGap
+	if rightWidth < 1 {
+		rightWidth = 1
+	}
+	return calloutWidth, rightWidth
+}
+
+func renderHomeCalloutRows(width int) []string {
+	return []string{
+		styleCentered("post to classifieds", width, ansiBlue),
+		styleCentered("@stanford.edu required", width, ansiGray),
+		strings.Repeat(" ", width),
+		styleCentered("post a job", width, ansiBlue),
+		styleCentered("post housing", width, ansiBlue),
+		styleCentered("post a car", width, ansiBlue),
+		strings.Repeat(" ", width),
+		styleCentered("open for all emails", width, ansiGray),
+	}
+}
+
+func styleCentered(text string, width int, color string) string {
+	cell := centerText(text, width)
+	if strings.TrimSpace(text) == "" || color == "" {
+		return cell
+	}
+	return color + cell + ansiReset
+}
+
+func centerText(text string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	trimmed := strings.TrimSpace(text)
+	runes := []rune(trimmed)
+	if len(runes) > width {
+		return fitText(trimmed, width)
+	}
+	padding := width - len(runes)
+	left := padding / 2
+	right := padding - left
+	return strings.Repeat(" ", left) + trimmed + strings.Repeat(" ", right)
 }
 
 func selectRecentImagePosts(posts []domain.Post, limit int) []domain.Post {

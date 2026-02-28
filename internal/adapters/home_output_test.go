@@ -243,6 +243,14 @@ func TestRenderHomeCategoryDetailsRows_IncludesRequestedSubcategories(t *testing
 	}
 }
 
+func TestFormatCompactAge_ZeroTime(t *testing.T) {
+	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.UTC)
+	got := formatCompactAge(time.Time{}, now)
+	if got != "no active posts" {
+		t.Fatalf("got %q, want %q", got, "no active posts")
+	}
+}
+
 func TestRenderRecentPostRows_RespectsWrapWidth(t *testing.T) {
 	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.UTC)
 	rows := renderRecentPostRows([]domain.Post{

@@ -25,6 +25,15 @@ go run . home                 # now renders live data
 
 For running the latest code without relying on a globally installed `supost` binary, see [Terminal Commands](docs/terminal_commands.md).
 
+### Home Performance Notes
+
+- `go build -o bin/supost .` prints nothing on success.
+- For faster repeated runs, prefer `./bin/supost home` over `go run . home` (avoids compile-on-run overhead).
+- `home` caches:
+  - recent active posts
+  - per-category latest active-post timestamps (used by overview/category sidebar times)
+- Category/subcategory taxonomy comes from local seed data, not runtime DB category-table queries.
+
 ## Commands
 
 ### Pages (read-only)

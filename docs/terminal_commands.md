@@ -22,6 +22,8 @@ make build
 
 This uses the binary built from your current working tree, not the globally installed one.
 
+If `go build -o bin/supost .` prints no output, that means the build succeeded.
+
 ## Reinstall global binary
 
 ```bash
@@ -38,3 +40,7 @@ Use this when `supost` in your shell is outdated compared to current repo code.
   - `go run . home --format json`
 - `--refresh` bypasses cache.
 - `--cache-ttl` controls cache duration (set `0s` to disable cache).
+- Performance path:
+  - cache 1: recent active posts
+  - cache 2: category last-active timestamps
+  - category/subcategory taxonomy is loaded from local seed data, not from runtime DB queries.

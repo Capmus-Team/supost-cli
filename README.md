@@ -12,7 +12,7 @@ Works immediately with in-memory seed data — no database, no API keys, no Dock
 go run . version              # → v0.1.0
 go run . home                 # homepage
 go run . search --category 5  # search results
-go run . post seed-1          # view a post
+go run . post 130031605       # view a post
 go run . serve                # preview HTTP server at localhost:8080
 ```
 
@@ -157,6 +157,8 @@ supost
 ```
 supost-cli/
 ├── AGENTS.md                        # AI agent governance — read first
+├── README.md
+├── Makefile
 ├── main.go                          # entrypoint (wiring only)
 │
 ├── cmd/                             # one file per command
@@ -168,33 +170,60 @@ supost-cli/
 │   ├── post_create.go               # supost post create
 │   ├── post_respond.go              # supost post respond <id>
 │   ├── categories.go                # supost categories
+│   ├── command_reference_test.go    # command/flag contract tests
 │   └── serve.go                     # supost serve
 │
 ├── internal/
 │   ├── config/config.go             # centralized config (Viper)
 │   ├── domain/                      # types → Supabase tables
-│   │   ├── post.go                  # Post struct (json + db tags)
 │   │   ├── category.go              # Category, Subcategory
-│   │   ├── user.go                  # User / Profile
+│   │   ├── category_rules.go        # category-level validation rules
+│   │   ├── home_category.go         # home sidebar category section type
 │   │   ├── message.go               # Response messages
+│   │   ├── post.go                  # post page entity (json + db tags)
+│   │   ├── post_create_page.go      # post create staged page model
+│   │   ├── post_create_submit.go    # post create submit models
+│   │   ├── post_respond.go          # post respond submission/result models
+│   │   ├── search_result.go         # search result page models
+│   │   ├── user.go                  # User / Profile
 │   │   └── errors.go                # domain errors (HTTP-mappable)
 │   ├── service/                     # business logic (the brain)
-│   │   ├── posts.go                 # Create, Validate, GetByID, Search
-│   │   ├── categories.go            # ListCategories, GetSubcategories
-│   │   ├── email.go                 # SendPublishLink, SendResponse
-│   │   └── home.go                  # HomepageData (posts + categories)
+│   │   ├── categories.go            # ListCategoriesWithSubcategories
+│   │   ├── home.go                  # home post/category flows
+│   │   ├── post.go                  # single-post lookup flow
+│   │   ├── post_create.go           # staged create-page flow
+│   │   ├── post_create_submit.go    # create submit + publish email flow
+│   │   ├── post_respond.go          # post response + email flow
+│   │   └── search.go                # search + pagination flow
 │   ├── repository/                  # data access (swappable)
 │   │   ├── interfaces.go
 │   │   ├── inmemory.go              # zero-dep prototype adapter
-│   │   └── postgres.go              # real Supabase/Postgres adapter
+│   │   ├── inmemory_post_create.go
+│   │   ├── inmemory_post_respond.go
+│   │   ├── inmemory_search.go
+│   │   ├── postgres.go              # real Supabase/Postgres adapter
+│   │   ├── postgres_post_create.go
+│   │   ├── postgres_post_respond.go
+│   │   └── postgres_search.go
 │   ├── adapters/                    # external services
-│   │   ├── output.go                # JSON/table/text rendering
-│   │   └── mailgun.go               # email sending
-│   └── util/
+│   │   ├── output.go                # generic JSON/table/text rendering
+│   │   ├── mailgun.go               # email sending
+│   │   ├── home_output.go           # home page renderer
+│   │   ├── search_output.go         # search page renderer
+│   │   ├── post_output.go           # single-post renderer
+│   │   ├── post_create_output.go    # create staged page renderer
+│   │   ├── post_create_submit_output.go
+│   │   ├── post_respond_output.go
+│   │   ├── page_header.go
+│   │   ├── page_footer.go
+│   │   └── home_cache.go
+│   └── util/util.go
 │
 ├── migrations/                      # SQL schema (Supabase-ready)
+├── supabase/migrations/             # Supabase migration snapshots
 ├── configs/config.yaml.example
-├── testdata/seed/
+├── testdata/seed/                   # category + subcategory seed rows
+├── docs/                            # implementation notes
 └── .env.example
 ```
 

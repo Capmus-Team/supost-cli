@@ -8,8 +8,4 @@ var (
 	ErrNotFound     = errors.New("not found")
 	ErrUnauthorized = errors.New("unauthorized")
 	ErrConflict     = errors.New("conflict")
-
-	// Validation errors
-	ErrMissingTitle = errors.New("title is required")
-	ErrInvalidPrice = errors.New("price must be non-negative")
 )

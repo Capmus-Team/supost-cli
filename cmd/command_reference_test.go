@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -11,6 +14,12 @@ func TestCommandReference_TopLevelCommandsExist(t *testing.T) {
 		if mustCommandByName(t, rootCmd, name) == nil {
 			t.Fatalf("expected top-level command %q", name)
 		}
+	}
+}
+
+func TestCommandReference_NoLegacyListingsCommand(t *testing.T) {
+	if commandByName(rootCmd, "listings") != nil {
+		t.Fatalf("did not expect legacy listings command to be registered")
 	}
 }
 
@@ -122,6 +131,96 @@ func TestCommandReference_ServePortDefault(t *testing.T) {
 	}
 }
 
+func TestProjectStructure_ReadmeListedPathsExist(t *testing.T) {
+	root := repoRoot(t)
+
+	expectedFiles := []string{
+		"AGENTS.md",
+		"README.md",
+		"Makefile",
+		"main.go",
+		"cmd/root.go",
+		"cmd/version.go",
+		"cmd/home.go",
+		"cmd/search.go",
+		"cmd/post.go",
+		"cmd/post_create.go",
+		"cmd/post_respond.go",
+		"cmd/categories.go",
+		"cmd/command_reference_test.go",
+		"cmd/serve.go",
+		"internal/config/config.go",
+		"internal/domain/category.go",
+		"internal/domain/category_rules.go",
+		"internal/domain/home_category.go",
+		"internal/domain/message.go",
+		"internal/domain/post.go",
+		"internal/domain/post_create_page.go",
+		"internal/domain/post_create_submit.go",
+		"internal/domain/post_respond.go",
+		"internal/domain/search_result.go",
+		"internal/domain/user.go",
+		"internal/domain/errors.go",
+		"internal/service/categories.go",
+		"internal/service/home.go",
+		"internal/service/post.go",
+		"internal/service/post_create.go",
+		"internal/service/post_create_submit.go",
+		"internal/service/post_respond.go",
+		"internal/service/search.go",
+		"internal/repository/interfaces.go",
+		"internal/repository/inmemory.go",
+		"internal/repository/inmemory_post_create.go",
+		"internal/repository/inmemory_post_respond.go",
+		"internal/repository/inmemory_search.go",
+		"internal/repository/postgres.go",
+		"internal/repository/postgres_post_create.go",
+		"internal/repository/postgres_post_respond.go",
+		"internal/repository/postgres_search.go",
+		"internal/adapters/output.go",
+		"internal/adapters/mailgun.go",
+		"internal/adapters/home_output.go",
+		"internal/adapters/search_output.go",
+		"internal/adapters/post_output.go",
+		"internal/adapters/post_create_output.go",
+		"internal/adapters/post_create_submit_output.go",
+		"internal/adapters/post_respond_output.go",
+		"internal/adapters/page_header.go",
+		"internal/adapters/page_footer.go",
+		"internal/adapters/home_cache.go",
+		"internal/util/util.go",
+		"configs/config.yaml.example",
+		".env.example",
+	}
+	for _, rel := range expectedFiles {
+		assertFileExists(t, filepath.Join(root, rel))
+	}
+
+	expectedDirs := []string{"migrations", "supabase/migrations", "testdata/seed", "docs"}
+	for _, rel := range expectedDirs {
+		assertDirExists(t, filepath.Join(root, rel))
+	}
+}
+
+func TestProjectStructure_LegacyListingPathsRemoved(t *testing.T) {
+	root := repoRoot(t)
+	removedPaths := []string{
+		"cmd/listings.go",
+		"internal/domain/listing.go",
+		"internal/service/listings.go",
+		"internal/service/listings_test.go",
+		"testdata/seed/listings.json",
+	}
+
+	for _, rel := range removedPaths {
+		if _, err := os.Stat(filepath.Join(root, rel)); err == nil {
+			t.Fatalf("expected removed path %q to be absent", rel)
+		} else if !os.IsNotExist(err) {
+			t.Fatalf("unexpected stat error for %q: %v", rel, err)
+		}
+	}
+}
+
 func mustCommandByName(t *testing.T, parent *cobra.Command, name string) *cobra.Command {
 	t.Helper()
 	cmd := commandByName(parent, name)
@@ -147,4 +246,35 @@ func isRequiredFlag(cmd *cobra.Command, flagName string) bool {
 	}
 	required, ok := flag.Annotations[cobra.BashCompOneRequiredFlag]
 	return ok && len(required) > 0
+}
+
+func repoRoot(t *testing.T) string {
+	t.Helper()
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatalf("failed to resolve test file path")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(thisFile), ".."))
+}
+
+func assertFileExists(t *testing.T, path string) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("expected file at %q: %v", path, err)
+	}
+	if info.IsDir() {
+		t.Fatalf("expected file at %q, got directory", path)
+	}
+}
+
+func assertDirExists(t *testing.T, path string) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("expected directory at %q: %v", path, err)
+	}
+	if !info.IsDir() {
+		t.Fatalf("expected directory at %q, got file", path)
+	}
 }

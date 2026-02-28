@@ -28,7 +28,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", ".supost.yaml", "config file (default is .supost.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", ".supost.yaml", "config file path")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose output")
 	rootCmd.PersistentFlags().String("format", "json", "output format: json, table, text")
 	cobra.CheckErr(viper.BindPFlags(rootCmd.PersistentFlags()))

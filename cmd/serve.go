@@ -32,19 +32,19 @@ API routes in production. Uses in-memory data by default.`,
 
 		// Composition root: choose the repository adapter.
 		repo := repository.NewInMemory()
-		listingSvc := service.NewListingService(repo)
+		homeSvc := service.NewHomeService(repo)
 
 		mux := http.NewServeMux()
 
-		// GET /api/listings — returns active listings as JSON
-		mux.HandleFunc("GET /api/listings", func(w http.ResponseWriter, r *http.Request) {
-			listings, err := listingSvc.ListActive(r.Context())
+		// GET /api/posts — returns recent active posts as JSON
+		mux.HandleFunc("GET /api/posts", func(w http.ResponseWriter, r *http.Request) {
+			posts, err := homeSvc.ListRecentActive(r.Context(), 0)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(listings)
+			json.NewEncoder(w).Encode(posts)
 		})
 
 		// Health check
@@ -55,7 +55,7 @@ API routes in production. Uses in-memory data by default.`,
 
 		addr := fmt.Sprintf(":%d", port)
 		log.Printf("Preview server running at http://localhost%s", addr)
-		log.Printf("  GET /api/listings")
+		log.Printf("  GET /api/posts")
 		log.Printf("  GET /api/health")
 		log.Printf("Press Ctrl+C to stop.")
 		return http.ListenAndServe(addr, mux)

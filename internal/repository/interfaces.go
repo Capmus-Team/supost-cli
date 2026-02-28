@@ -11,15 +11,6 @@ import (
 	"github.com/Capmus-Team/supost-cli/internal/domain"
 )
 
-// ListingStore is the shared interface for listing data access.
-// Defined here because both inmemory and postgres adapters implement it,
-// and cmd/ needs to reference the concrete constructors.
-type ListingStore interface {
-	ListActive(ctx context.Context) ([]domain.Listing, error)
-	GetByID(ctx context.Context, id string) (*domain.Listing, error)
-	Create(ctx context.Context, listing *domain.Listing) error
-}
-
 // PostStore is the shared interface for single-post read operations.
 type PostStore interface {
 	GetPostByID(ctx context.Context, postID int64) (domain.Post, error)

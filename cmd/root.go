@@ -28,7 +28,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.supost.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", ".supost.yaml", "config file (default is .supost.yaml)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose output")
 	rootCmd.PersistentFlags().String("format", "json", "output format: json, table, text")
 	cobra.CheckErr(viper.BindPFlags(rootCmd.PersistentFlags()))
@@ -37,16 +37,10 @@ func init() {
 func initConfig() {
 	_ = gotenv.Load(".env")
 
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-		viper.AddConfigPath(home)
-		viper.AddConfigPath(".")
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".supost")
+	if strings.TrimSpace(cfgFile) == "" {
+		cfgFile = ".supost.yaml"
 	}
+	viper.SetConfigFile(cfgFile)
 
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 	viper.AutomaticEnv()

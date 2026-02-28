@@ -15,6 +15,7 @@ const (
 	postPosterWidth      = 26
 	postPhotoGridGap     = 2
 	postPosterMsgRows    = 6
+	postHousingNotice    = "Be sure to follow official Student Housing Sublicensing policies: http://sublicense.Stanford.edu"
 	postCommercialNotice = "please do not message this poster about other commercial services"
 )
 
@@ -81,11 +82,18 @@ func renderPostTopBlock(w io.Writer, post domain.Post, width int) error {
 	}
 
 	dateValue := "Date: " + formatPostPageDate(post)
-	if post.HasPrice {
-		dateValue += "  Price: " + formatPrice(post.Price, true)
+	if _, err := fmt.Fprintln(w, fitText(dateValue, width)); err != nil {
+		return err
 	}
-	_, err := fmt.Fprintln(w, fitText(dateValue, width))
-	return err
+
+	if post.HasPrice {
+		priceValue := "Price: " + formatPrice(post.Price, true)
+		if _, err := fmt.Fprintln(w, fitText(priceValue, width)); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func splitPostContentWidths(width int) (int, int) {
@@ -118,6 +126,9 @@ func renderPostMainRows(post domain.Post, now time.Time, width int) []string {
 	}
 	rows = append(rows, wrapPlainText(body, width)...)
 	rows = append(rows, "")
+	if isHousingCategory(post.CategoryID) {
+		rows = append(rows, wrapPlainText(postHousingNotice, width)...)
+	}
 	rows = append(rows, wrapPlainText(postCommercialNotice, width)...)
 	return rows
 }
@@ -228,8 +239,6 @@ func renderPostMessagePosterRows(width int) []string {
 	rows = append(rows, fitText("Your Email:", width))
 	rows = append(rows, fitText("[you@example.com]", width))
 	rows = append(rows, fitText("Send!", width))
-	rows = append(rows, "")
-	rows = append(rows, wrapPlainText(postCommercialNotice, width)...)
 	return rows
 }
 
@@ -240,4 +249,8 @@ func wrapPlainText(text string, width int) []string {
 		out = append(out, renderStyledLine(line))
 	}
 	return out
+}
+
+func isHousingCategory(categoryID int64) bool {
+	return categoryID == 3 || categoryID == 4
 }

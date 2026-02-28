@@ -47,6 +47,7 @@ func TestRenderPostPage_ContainsHeaderBodyAndPosterBox(t *testing.T) {
 		ID:           130031961,
 		Name:         "Shared House - $700",
 		Email:        "owner@stanford.edu",
+		CategoryID:   3,
 		Body:         "Room w/ Private Bathroom for Rent in Quiet Home | Menlo Park",
 		TimePosted:   1772238444,
 		HasPrice:     true,
@@ -70,10 +71,32 @@ func TestRenderPostPage_ContainsHeaderBodyAndPosterBox(t *testing.T) {
 		"Price: $700",
 		"post_130031961a",
 		"post_130031961b",
+		"Be sure to follow official Student Housing Sublicensing policies:",
+		"http://sublicense.Stanford.edu",
 		"please do not message this poster about other commercial services",
 	} {
 		if !strings.Contains(plain, needle) {
 			t.Fatalf("missing %q in rendered post page", needle)
 		}
+	}
+}
+
+func TestRenderPostPage_NonHousingSkipsHousingNotice(t *testing.T) {
+	var out bytes.Buffer
+	post := domain.Post{
+		ID:         130031961,
+		CategoryID: 5,
+		Name:       "Bike for Sale",
+		Body:       "Clean bike, ready to ride.",
+		TimePosted: 1772238444,
+	}
+
+	if err := RenderPostPage(&out, post); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	plain := stripANSI(out.String())
+	if strings.Contains(plain, "Student Housing Sublicensing policies") {
+		t.Fatalf("did not expect housing notice for non-housing category")
 	}
 }

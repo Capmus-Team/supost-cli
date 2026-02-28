@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Capmus-Team/supost-cli/internal/adapters"
 	"github.com/Capmus-Team/supost-cli/internal/config"
@@ -52,6 +53,68 @@ var postCreateCmd = &cobra.Command{
 		}
 
 		svc := service.NewPostCreateService(repo)
+
+		if postCreateSubmitRequested(cmd) {
+			name, err := cmd.Flags().GetString("name")
+			if err != nil {
+				return fmt.Errorf("reading name flag: %w", err)
+			}
+			body, err := cmd.Flags().GetString("body")
+			if err != nil {
+				return fmt.Errorf("reading body flag: %w", err)
+			}
+			email, err := cmd.Flags().GetString("email")
+			if err != nil {
+				return fmt.Errorf("reading email flag: %w", err)
+			}
+			price, err := cmd.Flags().GetFloat64("price")
+			if err != nil {
+				return fmt.Errorf("reading price flag: %w", err)
+			}
+			dryRun, err := cmd.Flags().GetBool("dry-run")
+			if err != nil {
+				return fmt.Errorf("reading dry-run flag: %w", err)
+			}
+
+			input := domain.PostCreateSubmission{
+				CategoryID:    categoryID,
+				SubcategoryID: subcategoryID,
+				Name:          strings.TrimSpace(name),
+				Body:          strings.TrimSpace(body),
+				Email:         strings.TrimSpace(email),
+				Price:         price,
+				PriceProvided: cmd.Flags().Changed("price"),
+			}
+
+			var sender service.PostCreateEmailSender
+			if !dryRun {
+				mailgunSender, err := adapters.NewMailgunSender(
+					cfg.MailgunAPIBase,
+					cfg.MailgunDomain,
+					cfg.MailgunAPIKey,
+					cfg.MailgunFromEmail,
+					cfg.MailgunSendTimeout,
+				)
+				if err != nil {
+					return fmt.Errorf("configuring mailgun sender: %w", err)
+				}
+				sender = mailgunSender
+			}
+
+			result, err := svc.Submit(
+				cmd.Context(),
+				input,
+				dryRun,
+				cfg.SupostBaseURL,
+				cfg.MailgunFromEmail,
+				sender,
+			)
+			if err != nil {
+				return fmt.Errorf("submitting post: %w", err)
+			}
+			return renderPostCreateSubmitOutput(cmd, cfg.Format, result)
+		}
+
 		page, err := svc.BuildPage(cmd.Context(), categoryID, subcategoryID)
 		if err != nil {
 			return fmt.Errorf("building post create page: %w", err)
@@ -65,6 +128,11 @@ func init() {
 	postCmd.AddCommand(postCreateCmd)
 	postCreateCmd.Flags().Int64("category", 0, "selected category id")
 	postCreateCmd.Flags().Int64("subcategory", 0, "selected subcategory id")
+	postCreateCmd.Flags().String("name", "", "post title")
+	postCreateCmd.Flags().String("body", "", "post body")
+	postCreateCmd.Flags().String("email", "", "poster email")
+	postCreateCmd.Flags().Float64("price", 0, "post price")
+	postCreateCmd.Flags().Bool("dry-run", false, "validate and render publish email without inserting/sending")
 }
 
 func renderPostCreateOutput(cmd *cobra.Command, format string, page domain.PostCreatePage) error {
@@ -75,4 +143,22 @@ func renderPostCreateOutput(cmd *cobra.Command, format string, page domain.PostC
 		return adapters.RenderPostCreatePage(cmd.OutOrStdout(), page)
 	}
 	return adapters.Render(format, page)
+}
+
+func renderPostCreateSubmitOutput(cmd *cobra.Command, format string, result domain.PostCreateSubmitResult) error {
+	if !cmd.Flags().Changed("format") && (format == "" || format == "json") {
+		return adapters.RenderPostCreateSubmitResult(cmd.OutOrStdout(), result)
+	}
+	if format == "text" || format == "table" {
+		return adapters.RenderPostCreateSubmitResult(cmd.OutOrStdout(), result)
+	}
+	return adapters.Render(format, result)
+}
+
+func postCreateSubmitRequested(cmd *cobra.Command) bool {
+	return cmd.Flags().Changed("name") ||
+		cmd.Flags().Changed("body") ||
+		cmd.Flags().Changed("email") ||
+		cmd.Flags().Changed("price") ||
+		cmd.Flags().Changed("dry-run")
 }

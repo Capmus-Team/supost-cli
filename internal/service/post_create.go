@@ -13,6 +13,7 @@ import (
 type PostCreateRepository interface {
 	ListCategories(ctx context.Context) ([]domain.Category, error)
 	ListSubcategories(ctx context.Context) ([]domain.Subcategory, error)
+	CreatePendingPost(ctx context.Context, submission domain.PostCreateSubmission) (domain.PostCreatePersisted, error)
 }
 
 // PostCreateService builds the staged post creation flow.

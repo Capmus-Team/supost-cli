@@ -21,6 +21,10 @@ func (m *mockPostCreateRepo) ListSubcategories(_ context.Context) ([]domain.Subc
 	return m.subcategories, nil
 }
 
+func (m *mockPostCreateRepo) CreatePendingPost(_ context.Context, _ domain.PostCreateSubmission) (domain.PostCreatePersisted, error) {
+	return domain.PostCreatePersisted{}, nil
+}
+
 func TestPostCreateService_BuildPage_ChooseCategory(t *testing.T) {
 	svc := NewPostCreateService(&mockPostCreateRepo{
 		categories: []domain.Category{

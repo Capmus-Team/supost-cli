@@ -11,3 +11,11 @@ port: 8080
 database_url: ""
 supabase_url: ""
 supabase_anon_key: ""
+
+# Publish-link email + URL config
+supost_base_url: "https://supost.com"
+mailgun_domain: "mg.supost.com"
+mailgun_api_key: ""
+mailgun_from_email: "response@mg.supost.com"
+mailgun_api_base: "https://api.mailgun.net"
+mailgun_send_timeout: "10s"

@@ -7,6 +7,8 @@ Use these commands from the repo root when you want to run the latest local code
 ```bash
 go run . version
 go run . home
+go run . categories
+go run . post 130031900
 go run . home --refresh
 go run . home --format json
 go run . home --cache-ttl 60s

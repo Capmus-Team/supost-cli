@@ -39,11 +39,19 @@ var homeCmd = &cobra.Command{
 			posts        []domain.Post
 			usedCache    bool
 			cacheLoadErr error
+			sections     []domain.HomeCategorySection
+			sectionsOK   bool
+			sectionsErr  error
 		)
 		if cfg.DatabaseURL != "" {
 			var ok bool
 			posts, ok, cacheLoadErr = getCachedHomePosts(cfg.DatabaseURL, refresh, cacheTTL, limit)
 			usedCache = cacheLoadErr == nil && ok
+			sections, sectionsOK, sectionsErr = getCachedHomeCategorySections(cfg.DatabaseURL, refresh, cacheTTL)
+		}
+
+		if cfg.DatabaseURL != "" && usedCache && sectionsOK {
+			return renderHomeOutput(cmd, cfg.Format, posts, sections)
 		}
 
 		var (
@@ -84,12 +92,18 @@ var homeCmd = &cobra.Command{
 			fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading home cache: %v\n", cacheLoadErr)
 		}
 
-		sections, err := svc.ListCategorySections(cmd.Context())
-		if err != nil {
-			if cfg.Verbose {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading category sections: %v\n", err)
+		if !sectionsOK {
+			sections, err = svc.ListCategorySections(cmd.Context())
+			if err != nil {
+				if cfg.Verbose {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading category sections: %v\n", err)
+				}
+				sections = nil
+			} else if cfg.DatabaseURL != "" && cacheTTL > 0 && len(sections) > 0 {
+				_ = adapters.SaveHomeCategorySectionsCache(sections)
 			}
-			sections = nil
+		} else if sectionsErr != nil && cfg.Verbose {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading category section cache: %v\n", sectionsErr)
 		}
 
 		return renderHomeOutput(cmd, cfg.Format, posts, sections)
@@ -112,6 +126,17 @@ func getCachedHomePosts(databaseURL string, refresh bool, ttl time.Duration, lim
 		return nil, false, err
 	}
 	return posts, ok, nil
+}
+
+func getCachedHomeCategorySections(databaseURL string, refresh bool, ttl time.Duration) ([]domain.HomeCategorySection, bool, error) {
+	if databaseURL == "" || refresh || ttl <= 0 {
+		return nil, false, nil
+	}
+	sections, ok, err := adapters.LoadHomeCategorySectionsCache(ttl)
+	if err != nil {
+		return nil, false, err
+	}
+	return sections, ok, nil
 }
 
 func renderHomeOutput(cmd *cobra.Command, format string, posts []domain.Post, sections []domain.HomeCategorySection) error {

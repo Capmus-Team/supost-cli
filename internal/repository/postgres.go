@@ -117,25 +117,23 @@ LIMIT $2
 	return posts, nil
 }
 
-// ListHomeCategorySections returns category/subcategory taxonomy and latest
-// active post time per category for sidebar rendering.
+// ListHomeCategorySections returns latest active post time per category.
+// Taxonomy (category/subcategory names) is loaded from cached/local data.
 func (r *Postgres) ListHomeCategorySections(ctx context.Context) ([]domain.HomeCategorySection, error) {
 	const query = `
 SELECT
-	c.id AS category_id,
-	COALESCE(NULLIF(c.short_name, ''), NULLIF(c.name, ''), '') AS category_name,
-	COALESCE(s.name, '') AS subcategory_name,
-	COALESCE(lat.latest_time_posted, 0) AS latest_time_posted
-FROM public.category c
-LEFT JOIN public.subcategory s ON s.category_id = c.id
-LEFT JOIN LATERAL (
-	SELECT COALESCE(p.time_posted, 0) AS latest_time_posted
-	FROM public.post p
-	WHERE p.status = $1 AND p.category_id = c.id
-	ORDER BY p.time_posted DESC NULLS LAST, p.id DESC
-	LIMIT 1
-) lat ON true
-ORDER BY c.id ASC, s.id ASC
+	COALESCE(category_id, 0) AS category_id,
+	MAX(
+		COALESCE(
+			time_posted_at,
+			CASE WHEN COALESCE(time_posted, 0) > 0 THEN to_timestamp(time_posted) END
+		)
+	) AS last_posted_at
+FROM public.post
+WHERE status = $1
+  AND category_id IS NOT NULL
+GROUP BY category_id
+ORDER BY category_id ASC
 `
 
 	rows, err := r.db.QueryContext(ctx, query, domain.PostStatusActive)
@@ -144,45 +142,27 @@ ORDER BY c.id ASC, s.id ASC
 	}
 	defer rows.Close()
 
-	sectionsByID := make(map[int64]*domain.HomeCategorySection, 16)
-	order := make([]int64, 0, 16)
+	sections := make([]domain.HomeCategorySection, 0, 16)
 
 	for rows.Next() {
 		var (
-			categoryID       int64
-			categoryName     string
-			subcategoryName  string
-			latestTimePosted int64
+			categoryID   int64
+			lastPostedAt sql.NullTime
 		)
-		if err := rows.Scan(&categoryID, &categoryName, &subcategoryName, &latestTimePosted); err != nil {
+		if err := rows.Scan(&categoryID, &lastPostedAt); err != nil {
 			return nil, fmt.Errorf("scanning home category section row: %w", err)
 		}
 
-		section, ok := sectionsByID[categoryID]
-		if !ok {
-			section = &domain.HomeCategorySection{
-				CategoryID:   categoryID,
-				CategoryName: strings.TrimSpace(categoryName),
-			}
-			if latestTimePosted > 0 {
-				section.LastPostedAt = time.Unix(latestTimePosted, 0)
-			}
-			sectionsByID[categoryID] = section
-			order = append(order, categoryID)
+		section := domain.HomeCategorySection{
+			CategoryID: categoryID,
 		}
-
-		sub := strings.TrimSpace(subcategoryName)
-		if sub != "" {
-			section.SubcategoryNames = append(section.SubcategoryNames, sub)
+		if lastPostedAt.Valid {
+			section.LastPostedAt = lastPostedAt.Time
 		}
+		sections = append(sections, section)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterating home category section rows: %w", err)
-	}
-
-	sections := make([]domain.HomeCategorySection, 0, len(order))
-	for _, categoryID := range order {
-		sections = append(sections, *sectionsByID[categoryID])
 	}
 	return sections, nil
 }

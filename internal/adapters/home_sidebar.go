@@ -187,7 +187,7 @@ func renderHomeCategoryDetailsRows(width int, sections []domain.HomeCategorySect
 		}
 
 		rows = append(rows, styleCentered(section.CategoryName, width, ansiBlue))
-		rows = append(rows, centerText("("+formatRelativeTime(section.LastPostedAt, now)+")", width))
+		rows = append(rows, centerText("("+formatDetailedCategoryAge(section.LastPostedAt, now)+")", width))
 		rows = append(rows, renderSubcategoryRows(section.SubcategoryNames, width)...)
 	}
 
@@ -369,7 +369,17 @@ func canonicalCategoryName(id int64, fromDB string) string {
 }
 
 func formatCompactAge(from, now time.Time) string {
+	if from.IsZero() {
+		return "no active posts"
+	}
 	return strings.TrimPrefix(formatRelativeTime(from, now), "about ")
+}
+
+func formatDetailedCategoryAge(from, now time.Time) string {
+	if from.IsZero() {
+		return "no active posts"
+	}
+	return formatRelativeTime(from, now)
 }
 
 func fillMissingSectionTimes(sections []domain.HomeCategorySection, posts []domain.Post) []domain.HomeCategorySection {

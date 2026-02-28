@@ -103,10 +103,41 @@ func (r *InMemory) ListRecentActivePosts(_ context.Context, limit int) ([]domain
 	return out, nil
 }
 
-// ListHomeCategorySections returns nil for in-memory mode; home renderer falls back
-// to baked category metadata when database taxonomy is unavailable.
+// ListHomeCategorySections returns latest active post times per category.
 func (r *InMemory) ListHomeCategorySections(_ context.Context) ([]domain.HomeCategorySection, error) {
-	return nil, nil
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	latestByCategory := make(map[int64]time.Time, 8)
+	for _, post := range r.posts {
+		if post.Status != domain.PostStatusActive {
+			continue
+		}
+		var postedAt time.Time
+		if !post.TimePostedAt.IsZero() {
+			postedAt = post.TimePostedAt
+		} else if post.TimePosted > 0 {
+			postedAt = time.Unix(post.TimePosted, 0)
+		}
+		if postedAt.IsZero() {
+			continue
+		}
+		if existing, ok := latestByCategory[post.CategoryID]; !ok || postedAt.After(existing) {
+			latestByCategory[post.CategoryID] = postedAt
+		}
+	}
+
+	sections := make([]domain.HomeCategorySection, 0, len(latestByCategory))
+	for categoryID, postedAt := range latestByCategory {
+		sections = append(sections, domain.HomeCategorySection{
+			CategoryID:   categoryID,
+			LastPostedAt: postedAt,
+		})
+	}
+	sort.Slice(sections, func(i, j int) bool {
+		return sections[i].CategoryID < sections[j].CategoryID
+	})
+	return sections, nil
 }
 
 // loadSeedData populates the repository with sample data.

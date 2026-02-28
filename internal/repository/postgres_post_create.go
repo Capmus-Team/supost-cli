@@ -14,6 +14,10 @@ func (r *Postgres) CreatePendingPost(ctx context.Context, submission domain.Post
 		postedAt = time.Now()
 	}
 	postedUnix := postedAt.Unix()
+	var priceValue any
+	if submission.PriceProvided {
+		priceValue = submission.Price
+	}
 
 	const query = `
 INSERT INTO public.post (
@@ -66,7 +70,7 @@ RETURNING
 		submission.Body,
 		postedUnix,
 		submission.AccessToken,
-		submission.Price,
+		priceValue,
 	).Scan(
 		&persisted.PostID,
 		&persisted.AccessToken,

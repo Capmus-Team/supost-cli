@@ -31,7 +31,7 @@ func (r *InMemory) CreatePendingPost(_ context.Context, submission domain.PostCr
 		TimePostedAt:   now,
 		TimeModifiedAt: now,
 		Price:          submission.Price,
-		HasPrice:       true,
+		HasPrice:       submission.PriceProvided,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	})

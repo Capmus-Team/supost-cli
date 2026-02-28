@@ -97,3 +97,23 @@ func TestRenderPostCreatePage_FormStage(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderPostCreatePage_FormStage_NoPriceForPersonals(t *testing.T) {
+	var out bytes.Buffer
+	page := domain.PostCreatePage{
+		Stage:         domain.PostCreateStageForm,
+		CategoryID:    8,
+		SubcategoryID: 130,
+	}
+
+	if err := RenderPostCreatePage(&out, page); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	plain := stripANSI(out.String())
+	if strings.Contains(plain, "Price: [price]") {
+		t.Fatalf("did not expect price field for personals form")
+	}
+	if !strings.Contains(plain, "Post Title: [title]") {
+		t.Fatalf("missing post title field")
+	}
+}

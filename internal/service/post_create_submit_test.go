@@ -158,6 +158,9 @@ func TestPostCreateService_Submit_InvalidEmailRejected(t *testing.T) {
 	if !strings.Contains(err.Error(), "Stanford email") {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if !strings.Contains(err.Error(), "1 error prohibited this post from being saved") {
+		t.Fatalf("expected formatted validation header, got %v", err)
+	}
 }
 
 func TestPostCreateService_Submit_StanfordSubdomainAccepted(t *testing.T) {
@@ -180,5 +183,87 @@ func TestPostCreateService_Submit_StanfordSubdomainAccepted(t *testing.T) {
 	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
 	if err != nil {
 		t.Fatalf("expected cs.stanford.edu to pass validation, got %v", err)
+	}
+}
+
+func TestPostCreateService_Submit_PriceRequiredForForSale(t *testing.T) {
+	repo := &mockPostCreateSubmitRepo{
+		categories: []domain.Category{{ID: 5, Name: "for sale/wanted", ShortName: "for sale"}},
+		subcategories: []domain.Subcategory{
+			{ID: 14, CategoryID: 5, Name: "furniture"},
+		},
+	}
+	svc := NewPostCreateService(repo)
+
+	_, err := svc.Submit(context.Background(), domain.PostCreateSubmission{
+		CategoryID:    5,
+		SubcategoryID: 14,
+		Name:          "Red bike for sale",
+		Body:          "Pick up on campus.",
+		Email:         "wientjes@alumni.stanford.edu",
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "Price is required for this category.") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPostCreateService_Submit_PriceForbiddenForPersonals(t *testing.T) {
+	repo := &mockPostCreateSubmitRepo{
+		categories: []domain.Category{{ID: 8, Name: "personals/dating", ShortName: "personals"}},
+		subcategories: []domain.Subcategory{
+			{ID: 130, CategoryID: 8, Name: "friendship"},
+		},
+	}
+	svc := NewPostCreateService(repo)
+
+	_, err := svc.Submit(context.Background(), domain.PostCreateSubmission{
+		CategoryID:    8,
+		SubcategoryID: 130,
+		Name:          "Missed connection",
+		Body:          "Saw you at Coupa.",
+		Email:         "wientjes@cs.stanford.edu",
+		Price:         10,
+		PriceProvided: true,
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "Price is not allowed for this category.") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPostCreateService_Submit_PersonalsNoPriceAllowed(t *testing.T) {
+	repo := &mockPostCreateSubmitRepo{
+		categories: []domain.Category{{ID: 8, Name: "personals/dating", ShortName: "personals"}},
+		subcategories: []domain.Subcategory{
+			{ID: 130, CategoryID: 8, Name: "friendship"},
+		},
+		persisted: domain.PostCreatePersisted{
+			PostID:      130032100,
+			AccessToken: "tok_personals",
+		},
+	}
+	svc := NewPostCreateService(repo)
+	sender := &mockPublishSender{}
+
+	result, err := svc.Submit(context.Background(), domain.PostCreateSubmission{
+		CategoryID:    8,
+		SubcategoryID: 130,
+		Name:          "Missed connection",
+		Body:          "Saw you at Coupa.",
+		Email:         "wientjes@cs.stanford.edu",
+	}, false, "https://supost.com", "response@mg.supost.com", sender)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.EmailSent || !repo.createCalled {
+		t.Fatalf("expected personals submit to send+persist")
+	}
+	if repo.submission.PriceProvided {
+		t.Fatalf("expected personals submit with no price")
 	}
 }

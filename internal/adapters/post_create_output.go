@@ -157,8 +157,10 @@ func renderPostCreateFormStep(w io.Writer, page domain.PostCreatePage, width int
 	if err := renderPostCreateFormField(w, width, "Post Title:", "[title]"); err != nil {
 		return err
 	}
-	if err := renderPostCreateFormField(w, width, "Price:", "[price]"); err != nil {
-		return err
+	if domain.CategoryPriceAllowed(page.CategoryID) {
+		if err := renderPostCreateFormField(w, width, "Price:", "[price]"); err != nil {
+			return err
+		}
 	}
 	if err := renderPostCreateFormField(w, width, "Post Description:", ""); err != nil {
 		return err

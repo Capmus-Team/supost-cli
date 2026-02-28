@@ -128,18 +128,22 @@ func (s *PostCreateService) validateSubmissionInput(ctx context.Context, input d
 		problems = append(problems, "body is required")
 	}
 	if normalized.Email == "" {
-		problems = append(problems, "email is required")
+		problems = append(problems, "Email is required.")
 	} else if !isStanfordEmail(normalized.Email) {
-		problems = append(problems, "email must be a Stanford email")
+		problems = append(problems, "Email must be a Stanford email (e.g., @stanford.edu, @cs.stanford.edu).")
 	}
-	if !normalized.PriceProvided {
-		problems = append(problems, "price is required")
-	} else if normalized.Price < 0 {
-		problems = append(problems, "price must be non-negative")
+	if domain.CategoryPriceRequired(normalized.CategoryID) {
+		if !normalized.PriceProvided {
+			problems = append(problems, "Price is required for this category.")
+		} else if normalized.Price < 0 {
+			problems = append(problems, "Price must be non-negative.")
+		}
+	} else if normalized.PriceProvided {
+		problems = append(problems, "Price is not allowed for this category.")
 	}
 
 	if len(problems) > 0 {
-		return domain.PostCreateSubmission{}, fmt.Errorf("validation failed: %s", strings.Join(problems, "; "))
+		return domain.PostCreateSubmission{}, fmt.Errorf("%s", formatPostCreateValidationErrors(problems))
 	}
 
 	page, err := s.BuildPage(ctx, normalized.CategoryID, normalized.SubcategoryID)
@@ -150,6 +154,15 @@ func (s *PostCreateService) validateSubmissionInput(ctx context.Context, input d
 		return domain.PostCreateSubmission{}, fmt.Errorf("invalid category/subcategory combination")
 	}
 	return normalized, nil
+}
+
+func formatPostCreateValidationErrors(problems []string) string {
+	count := len(problems)
+	header := fmt.Sprintf("%d errors prohibited this post from being saved", count)
+	if count == 1 {
+		header = "1 error prohibited this post from being saved"
+	}
+	return header + "\nThere were problems with the following fields:\n\n" + strings.Join(problems, "\n")
 }
 
 func isStanfordEmail(email string) bool {

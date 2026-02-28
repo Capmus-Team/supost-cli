@@ -17,7 +17,8 @@ const (
 	ansiMagenta = "\033[0;35m"
 	ansiHeader  = "\033[48;5;153m\033[1;34m"
 
-	homeRowWidth = 118
+	homePageWidth   = 118
+	homeRecentWidth = 54
 )
 
 type styledWord struct {
@@ -30,17 +31,17 @@ func RenderHomePosts(w io.Writer, posts []domain.Post) error {
 	now := time.Now()
 
 	if err := RenderPageHeader(w, PageHeaderOptions{
-		Width:      homeRowWidth,
+		Width:      homePageWidth,
 		Location:   "Stanford, California",
 		RightLabel: "post",
 		Now:        now,
 	}); err != nil {
 		return err
 	}
-	if err := renderHomePhotoStrip(w, posts, now, homeRowWidth); err != nil {
+	if err := renderHomePhotoStrip(w, posts, now, homePageWidth); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, "%s%s%s\n", ansiHeader, renderHomeHeader("recently posted", homeRowWidth), ansiReset); err != nil {
+	if _, err := fmt.Fprintf(w, "%s%s%s\n", ansiHeader, renderHomeHeader("recently posted", homePageWidth), ansiReset); err != nil {
 		return err
 	}
 
@@ -57,7 +58,7 @@ func RenderHomePosts(w io.Writer, posts []domain.Post) error {
 		}
 		words = append(words, splitStyledWords(timeAgo, ansiMagenta)...)
 
-		lines := wrapStyledWords(words, homeRowWidth)
+		lines := wrapStyledWords(words, homeRecentWidth)
 		for _, lineWords := range lines {
 			if _, err := fmt.Fprintln(w, renderStyledLine(lineWords)); err != nil {
 				return err
@@ -96,8 +97,10 @@ func renderHomePhotoStrip(w io.Writer, posts []domain.Post, now time.Time, width
 		timeAgo = append(timeAgo, formatRelativeTime(postTimestamp(post), now))
 	}
 
-	if _, err := fmt.Fprintln(w, renderColumnRow(imageURLs, columnWidth, "", 4)); err != nil {
-		return err
+	for _, row := range renderWrappedColumnRows(imageURLs, columnWidth, "", 4) {
+		if _, err := fmt.Fprintln(w, row); err != nil {
+			return err
+		}
 	}
 	if _, err := fmt.Fprintln(w, renderColumnRow(titles, columnWidth, ansiBlue, 4)); err != nil {
 		return err
@@ -166,6 +169,63 @@ func renderColumnRow(values []string, width int, color string, columns int) stri
 		cells = append(cells, cell)
 	}
 	return strings.Join(cells, "  ")
+}
+
+func renderWrappedColumnRows(values []string, width int, color string, columns int) []string {
+	if columns <= 0 {
+		columns = 1
+	}
+
+	columnLines := make([][]string, columns)
+	maxLines := 1
+	for i := 0; i < columns; i++ {
+		value := ""
+		if i < len(values) {
+			value = strings.TrimSpace(values[i])
+		}
+		lines := wrapColumnValue(value, width)
+		columnLines[i] = lines
+		if len(lines) > maxLines {
+			maxLines = len(lines)
+		}
+	}
+
+	rows := make([]string, 0, maxLines)
+	for line := 0; line < maxLines; line++ {
+		cells := make([]string, 0, columns)
+		for col := 0; col < columns; col++ {
+			segment := ""
+			if line < len(columnLines[col]) {
+				segment = columnLines[col][line]
+			}
+			cell := fitText(segment, width)
+			if color != "" && segment != "" {
+				cell = color + cell + ansiReset
+			}
+			cells = append(cells, cell)
+		}
+		rows = append(rows, strings.Join(cells, "  "))
+	}
+	return rows
+}
+
+func wrapColumnValue(value string, width int) []string {
+	if width <= 0 {
+		return []string{""}
+	}
+
+	runes := []rune(strings.TrimSpace(value))
+	if len(runes) == 0 {
+		return []string{""}
+	}
+
+	lines := make([]string, 0, (len(runes)/width)+1)
+	for len(runes) > width {
+		lines = append(lines, string(runes[:width]))
+		runes = runes[width:]
+	}
+	lines = append(lines, string(runes))
+	return lines
 }
 
 func fitText(value string, width int) string {

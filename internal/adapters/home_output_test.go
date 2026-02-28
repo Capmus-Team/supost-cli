@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -96,6 +97,41 @@ func TestRenderColumnRow_RespectsTotalWidth(t *testing.T) {
 	line := renderColumnRow([]string{"one", "two", "three", "four"}, 10, "", 4)
 	if got := len([]rune(line)); got != 46 {
 		t.Fatalf("unexpected row width: got %d want %d", got, 46)
+	}
+}
+
+func TestWrapColumnValue_DoesNotTruncate(t *testing.T) {
+	value := "https://supost-prod.s3.amazonaws.com/posts/130031934/ticker_130031934a?1772222959"
+	lines := wrapColumnValue(value, 20)
+	if len(lines) < 2 {
+		t.Fatalf("expected wrapped lines, got %d", len(lines))
+	}
+
+	joined := strings.Join(lines, "")
+	if joined != value {
+		t.Fatalf("wrapped content mismatch: got %q want %q", joined, value)
+	}
+	for _, line := range lines {
+		if got := len([]rune(line)); got > 20 {
+			t.Fatalf("line exceeds width: %d", got)
+		}
+	}
+}
+
+func TestRenderWrappedColumnRows_ContainsNoEllipsis(t *testing.T) {
+	rows := renderWrappedColumnRows(
+		[]string{"https://supost-prod.s3.amazonaws.com/posts/130031934/ticker_130031934a?1772222959"},
+		25,
+		"",
+		1,
+	)
+	if len(rows) < 2 {
+		t.Fatalf("expected multiple wrapped rows, got %d", len(rows))
+	}
+	for _, row := range rows {
+		if strings.Contains(row, "…") {
+			t.Fatalf("row should not contain ellipsis: %q", row)
+		}
 	}
 }
 

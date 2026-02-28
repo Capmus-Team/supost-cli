@@ -27,6 +27,12 @@ func RenderPostPage(w io.Writer, post domain.Post) error {
 		Location:   "Stanford, California",
 		RightLabel: "post",
 		Now:        now,
+		Breadcrumb: &BreadcrumbOptions{
+			CategoryID:    post.CategoryID,
+			SubcategoryID: post.SubcategoryID,
+			PostID:        post.ID,
+			PostTitle:     post.Name,
+		},
 	}); err != nil {
 		return err
 	}

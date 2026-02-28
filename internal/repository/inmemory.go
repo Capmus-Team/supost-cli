@@ -243,7 +243,7 @@ func (r *InMemory) loadPostSeedData() {
 		domain.Post{
 			ID:            130031901,
 			CategoryID:    3,
-			SubcategoryID: 14,
+			SubcategoryID: 59,
 			Email:         "alex@stanford.edu",
 			Name:          "Sublet room in EVGR premium 2b2b",
 			Status:        domain.PostStatusActive,
@@ -258,7 +258,7 @@ func (r *InMemory) loadPostSeedData() {
 		domain.Post{
 			ID:            130031900,
 			CategoryID:    3,
-			SubcategoryID: 14,
+			SubcategoryID: 59,
 			Email:         "casey@stanford.edu",
 			Name:          "Shared House",
 			Body:          "Room w/ Private Bathroom for Rent in Quiet Home | Menlo Park. Please do not message this poster about other commercial services.",
@@ -276,7 +276,7 @@ func (r *InMemory) loadPostSeedData() {
 		domain.Post{
 			ID:            130031899,
 			CategoryID:    5,
-			SubcategoryID: 20,
+			SubcategoryID: 9,
 			Email:         "morgan@stanford.edu",
 			Name:          "Ikea Stackable beds(2) + 2 Mattresses - Pickup in MV FRIDAY / SATURDAY",
 			Body:          "Pickup in Mountain View on Friday or Saturday.",
@@ -307,7 +307,7 @@ func (r *InMemory) loadPostSeedData() {
 		domain.Post{
 			ID:            130031897,
 			CategoryID:    5,
-			SubcategoryID: 20,
+			SubcategoryID: 9,
 			Email:         "jamie@stanford.edu",
 			Name:          "Table and chair",
 			Status:        domain.PostStatusActive,
@@ -322,7 +322,7 @@ func (r *InMemory) loadPostSeedData() {
 		domain.Post{
 			ID:            130031896,
 			CategoryID:    5,
-			SubcategoryID: 20,
+			SubcategoryID: 9,
 			Email:         "pat@stanford.edu",
 			Name:          "Apple Magic Keyboard & Magic Mouse 2 Bundle (Lightning)",
 			Status:        0,

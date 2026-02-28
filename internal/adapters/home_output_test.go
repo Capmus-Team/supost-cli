@@ -320,15 +320,20 @@ func TestRenderHomeRecentAndFeaturedRows_ContainsFeaturedSection(t *testing.T) {
 		}
 		return out
 	}(), "\n")
+	normalized := strings.Join(strings.Fields(joined), " ")
 
 	for _, needle := range []string{
 		"recently posted",
 		"featured job posts",
+		"events",
+		"events data placeholder",
+		"Safety: If someone sends you a check, do not send them any money back. Never.",
+		"SUpost is not sponsored by, endorsed by, or affiliated with Stanford University.",
 		"AI Algorithm Engineer",
 		"Dog Sitter During Spring Break",
 		"Software and hardware engineers",
 	} {
-		if !strings.Contains(joined, needle) {
+		if !strings.Contains(normalized, needle) {
 			t.Fatalf("missing %q in home content rows", needle)
 		}
 	}
@@ -353,14 +358,19 @@ func TestRenderHomeRecentAndFeaturedRows_UsesExplicitFeaturedPosts(t *testing.T)
 		}
 		return out
 	}(), "\n")
+	normalized := strings.Join(strings.Fields(joined), " ")
 
 	for _, needle := range []string{
 		"featured job posts",
+		"events",
+		"events data placeholder",
+		"Safety: If someone sends you a check, do not send them any money back. Never.",
+		"SUpost is not sponsored by, endorsed by, or affiliated with Stanford University.",
 		"AI Algorithm Engineer",
 		"Dog Sitter During Spring Break",
 		"Software and hardware engineers",
 	} {
-		if !strings.Contains(joined, needle) {
+		if !strings.Contains(normalized, needle) {
 			t.Fatalf("missing %q in explicit featured section", needle)
 		}
 	}

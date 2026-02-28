@@ -26,6 +26,10 @@ const (
 	homePhotoColumns   = 4
 	homePhotoColumnGap = 2
 	homeFeaturedLimit  = 3
+
+	homeEventsPlaceholder = "events data placeholder"
+	homeSafetyNotice      = "Safety: If someone sends you a check, do not send them any money back. Never."
+	homeAffiliationNotice = "SUpost is not sponsored by, endorsed by, or affiliated with Stanford University."
 )
 
 type styledWord struct {
@@ -181,7 +185,21 @@ func renderFeaturedJobPostRows(posts []domain.Post, wrapWidth int, sectionWidth 
 		}
 	}
 
+	rows = append(rows, strings.Repeat(" ", sectionWidth))
+	rows = append(rows, ansiHeader+renderHomeHeader("events", sectionWidth)+ansiReset)
+	appendWrappedTextRows(&rows, homeEventsPlaceholder, wrapWidth, ansiBlue)
+	rows = append(rows, strings.Repeat(" ", sectionWidth))
+	appendWrappedTextRows(&rows, homeSafetyNotice, wrapWidth, ansiBlue)
+	appendWrappedTextRows(&rows, homeAffiliationNotice, wrapWidth, ansiGray)
+
 	return rows
+}
+
+func appendWrappedTextRows(rows *[]string, text string, wrapWidth int, color string) {
+	lines := wrapStyledWords(splitStyledWords(text, color), wrapWidth)
+	for _, lineWords := range lines {
+		*rows = append(*rows, renderStyledLine(lineWords))
+	}
 }
 
 func selectFeaturedJobPosts(posts []domain.Post, limit int) []domain.Post {

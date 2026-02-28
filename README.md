@@ -124,7 +124,7 @@ supost
 │     --category <id>
 │     --subcategory <id>
 │     --page <n>                  (default: 1)
-│     --per-page <n>              (default: 20)
+│     --per-page <n>              (default: 100)
 ├── post <post_id>                # render single post page
 ├── post create                   # create-post wizard / submit
 │     --category <id>

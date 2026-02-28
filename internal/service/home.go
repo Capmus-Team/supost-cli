@@ -11,6 +11,7 @@ const defaultHomeLimit = 50
 // HomeRepository defines data access required by the home page.
 type HomeRepository interface {
 	ListRecentActivePosts(ctx context.Context, limit int) ([]domain.Post, error)
+	ListHomeCategorySections(ctx context.Context) ([]domain.HomeCategorySection, error)
 }
 
 // HomeService orchestrates homepage post retrieval.
@@ -29,4 +30,9 @@ func (s *HomeService) ListRecentActive(ctx context.Context, limit int) ([]domain
 		limit = defaultHomeLimit
 	}
 	return s.repo.ListRecentActivePosts(ctx, limit)
+}
+
+// ListCategorySections returns home sidebar category/subcategory sections.
+func (s *HomeService) ListCategorySections(ctx context.Context) ([]domain.HomeCategorySection, error) {
+	return s.repo.ListHomeCategorySections(ctx)
 }

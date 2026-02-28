@@ -172,7 +172,9 @@ func TestCenterText_ProducesFixedWidth(t *testing.T) {
 }
 
 func TestRenderHomeOverviewRows_ContainsRequestedCopy(t *testing.T) {
-	rows := renderHomeOverviewRows(28)
+	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.UTC)
+	sections := normalizeHomeSections(nil)
+	rows := renderHomeOverviewRows(28, sections, now)
 	if len(rows) != 8 {
 		t.Fatalf("expected 8 overview rows, got %d", len(rows))
 	}
@@ -196,10 +198,47 @@ func TestRenderHomeOverviewRows_ContainsRequestedCopy(t *testing.T) {
 		"campus job",
 		"community",
 		"services",
-		"19 days",
 	} {
 		if !strings.Contains(joined, needle) {
 			t.Fatalf("missing %q in overview block", needle)
+		}
+	}
+}
+
+func TestRenderHomeCategoryDetailsRows_IncludesRequestedSubcategories(t *testing.T) {
+	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.UTC)
+	sections := normalizeHomeSections(nil)
+	rows := renderHomeCategoryDetailsRows(36, sections, now)
+	if len(rows) == 0 {
+		t.Fatalf("expected detail rows")
+	}
+
+	joined := strings.Join(func() []string {
+		out := make([]string, 0, len(rows))
+		for _, row := range rows {
+			out = append(out, stripANSI(row))
+		}
+		return out
+	}(), "\n")
+
+	for _, needle := range []string{
+		"housing",
+		"apts/housing",
+		"for sale",
+		"electronics",
+		"jobs off-campus",
+		"post a job",
+		"personals",
+		"girl wants guy",
+		"campus job",
+		"research",
+		"community",
+		"rideshare",
+		"services",
+		"tutoring",
+	} {
+		if !strings.Contains(joined, needle) {
+			t.Fatalf("missing %q in category detail block", needle)
 		}
 	}
 }

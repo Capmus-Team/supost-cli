@@ -35,11 +35,15 @@ var homeCmd = &cobra.Command{
 			return fmt.Errorf("reading refresh flag: %w", err)
 		}
 
+		var (
+			posts        []domain.Post
+			usedCache    bool
+			cacheLoadErr error
+		)
 		if cfg.DatabaseURL != "" {
-			cachedPosts, ok, err := getCachedHomePosts(cfg.DatabaseURL, refresh, cacheTTL, limit)
-			if err == nil && ok {
-				return renderHomeOutput(cmd, cfg.Format, cachedPosts)
-			}
+			var ok bool
+			posts, ok, cacheLoadErr = getCachedHomePosts(cfg.DatabaseURL, refresh, cacheTTL, limit)
+			usedCache = cacheLoadErr == nil && ok
 		}
 
 		var (
@@ -49,6 +53,9 @@ var homeCmd = &cobra.Command{
 		if cfg.DatabaseURL != "" {
 			pgRepo, err := repository.NewPostgres(cfg.DatabaseURL)
 			if err != nil {
+				if usedCache {
+					return renderHomeOutput(cmd, cfg.Format, posts, nil)
+				}
 				return fmt.Errorf("connecting to postgres: %w", err)
 			}
 			repo = pgRepo
@@ -63,16 +70,29 @@ var homeCmd = &cobra.Command{
 		}
 
 		svc := service.NewHomeService(repo)
-		posts, err := svc.ListRecentActive(cmd.Context(), limit)
+
+		if !usedCache {
+			posts, err = svc.ListRecentActive(cmd.Context(), limit)
+			if err != nil {
+				return fmt.Errorf("fetching recent active posts: %w", err)
+			}
+
+			if cfg.DatabaseURL != "" && cacheTTL > 0 {
+				_ = adapters.SaveHomePostsCache(posts)
+			}
+		} else if cacheLoadErr != nil && cfg.Verbose {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading home cache: %v\n", cacheLoadErr)
+		}
+
+		sections, err := svc.ListCategorySections(cmd.Context())
 		if err != nil {
-			return fmt.Errorf("fetching recent active posts: %w", err)
+			if cfg.Verbose {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading category sections: %v\n", err)
+			}
+			sections = nil
 		}
 
-		if cfg.DatabaseURL != "" && cacheTTL > 0 {
-			_ = adapters.SaveHomePostsCache(posts)
-		}
-
-		return renderHomeOutput(cmd, cfg.Format, posts)
+		return renderHomeOutput(cmd, cfg.Format, posts, sections)
 	},
 }
 
@@ -94,12 +114,12 @@ func getCachedHomePosts(databaseURL string, refresh bool, ttl time.Duration, lim
 	return posts, ok, nil
 }
 
-func renderHomeOutput(cmd *cobra.Command, format string, posts []domain.Post) error {
+func renderHomeOutput(cmd *cobra.Command, format string, posts []domain.Post, sections []domain.HomeCategorySection) error {
 	if !cmd.Flags().Changed("format") && (format == "" || format == "json") {
-		return adapters.RenderHomePosts(cmd.OutOrStdout(), posts)
+		return adapters.RenderHomePosts(cmd.OutOrStdout(), posts, sections)
 	}
 	if format == "text" || format == "table" {
-		return adapters.RenderHomePosts(cmd.OutOrStdout(), posts)
+		return adapters.RenderHomePosts(cmd.OutOrStdout(), posts, sections)
 	}
 	return adapters.Render(format, posts)
 }

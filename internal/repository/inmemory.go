@@ -103,6 +103,12 @@ func (r *InMemory) ListRecentActivePosts(_ context.Context, limit int) ([]domain
 	return out, nil
 }
 
+// ListHomeCategorySections returns nil for in-memory mode; home renderer falls back
+// to baked category metadata when database taxonomy is unavailable.
+func (r *InMemory) ListHomeCategorySections(_ context.Context) ([]domain.HomeCategorySection, error) {
+	return nil, nil
+}
+
 // loadSeedData populates the repository with sample data.
 // In a more advanced setup, this could read from testdata/seed/*.json.
 func (r *InMemory) loadSeedData() {

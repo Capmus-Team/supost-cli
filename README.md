@@ -313,6 +313,12 @@ make serve    # preview HTTP server
 make clean
 ```
 
+## Rebuild Installed Binary
+
+```bash
+go build -o /usr/local/bin/supost .
+```
+
 ## Migration to Production (Next.js + Supabase)
 
 1. **Schema** → Apply `supabase/migrations/*.sql` to Supabase, uncomment RLS policies

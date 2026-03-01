@@ -47,8 +47,8 @@ func TestRenderSearchResults_GroupsByDateAndShowsNextPage(t *testing.T) {
 	for _, needle := range []string{
 		"SUPost » Stanford, California » housing",
 		"all posts",
-		"Fri, Feb 27",
-		"Thu, Feb 26",
+		"Fri, Feb 27, 2026",
+		"Thu, Feb 26, 2026",
 		"Shared House - $700",
 		"next 100 posts",
 	} {

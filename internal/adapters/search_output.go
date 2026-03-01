@@ -108,7 +108,7 @@ func formatSearchDateHeader(post domain.Post) string {
 	if ts.IsZero() {
 		return "Unknown date"
 	}
-	return ts.Format("Mon, Jan 2")
+	return ts.Format("Mon, Jan 2, 2006")
 }
 
 func searchResultTitle(query string) string {

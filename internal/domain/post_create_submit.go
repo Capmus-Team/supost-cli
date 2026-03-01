@@ -9,6 +9,7 @@ type PostCreateSubmission struct {
 	Name          string    `json:"name" db:"name"`
 	Body          string    `json:"body" db:"body"`
 	Email         string    `json:"email" db:"email"`
+	IP            string    `json:"ip" db:"ip"`
 	Price         float64   `json:"price" db:"price"`
 	PriceProvided bool      `json:"price_provided" db:"-"`
 	AccessToken   string    `json:"access_token" db:"access_token"`

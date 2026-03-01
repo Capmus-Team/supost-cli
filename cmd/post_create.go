@@ -71,6 +71,10 @@ var postCreateCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("reading price flag: %w", err)
 			}
+			ip, err := cmd.Flags().GetString("ip")
+			if err != nil {
+				return fmt.Errorf("reading ip flag: %w", err)
+			}
 			dryRun, err := cmd.Flags().GetBool("dry-run")
 			if err != nil {
 				return fmt.Errorf("reading dry-run flag: %w", err)
@@ -84,6 +88,7 @@ var postCreateCmd = &cobra.Command{
 				Email:         strings.TrimSpace(email),
 				Price:         price,
 				PriceProvided: cmd.Flags().Changed("price"),
+				IP:            strings.TrimSpace(ip),
 			}
 
 			var sender service.PostCreateEmailSender
@@ -132,6 +137,7 @@ func init() {
 	postCreateCmd.Flags().String("body", "", "post body")
 	postCreateCmd.Flags().String("email", "", "poster email")
 	postCreateCmd.Flags().Float64("price", 0, "post price")
+	postCreateCmd.Flags().String("ip", "", "poster IP address (optional)")
 	postCreateCmd.Flags().Bool("dry-run", false, "validate and render publish email without inserting/sending")
 }
 

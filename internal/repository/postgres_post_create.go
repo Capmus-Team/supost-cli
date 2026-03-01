@@ -14,6 +14,10 @@ func (r *Postgres) CreatePendingPost(ctx context.Context, submission domain.Post
 		postedAt = time.Now()
 	}
 	postedUnix := postedAt.Unix()
+	var ipValue any
+	if submission.IP != "" {
+		ipValue = submission.IP
+	}
 	var priceValue any
 	if submission.PriceProvided {
 		priceValue = submission.Price
@@ -25,6 +29,7 @@ INSERT INTO public.post (
 	category_id,
 	subcategory_id,
 	email,
+	ip,
 	name,
 	body,
 	status,
@@ -43,20 +48,21 @@ INSERT INTO public.post (
 	$3,
 	$4,
 	$5,
+	$6,
 	0,
-	$6,
-	$6,
-	to_timestamp($6),
-	to_timestamp($6),
 	$7,
+	$7,
+	to_timestamp($7),
+	to_timestamp($7),
 	$8,
+	$9,
 	now(),
 	now()
 )
 RETURNING
 	COALESCE(id, 0) AS id,
 	COALESCE(access_token, '') AS access_token,
-	COALESCE(time_posted_at, to_timestamp($6)) AS time_posted_at
+	COALESCE(time_posted_at, to_timestamp($7)) AS time_posted_at
 `
 
 	var persisted domain.PostCreatePersisted
@@ -66,6 +72,7 @@ RETURNING
 		submission.CategoryID,
 		submission.SubcategoryID,
 		submission.Email,
+		ipValue,
 		submission.Name,
 		submission.Body,
 		postedUnix,

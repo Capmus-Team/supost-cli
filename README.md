@@ -78,6 +78,7 @@ supost post create \
   --name "Red bike for sale" \
   --body "Pick up on campus." \
   --email "wientjes@alumni.stanford.edu" \
+  --ip "203.0.113.10" \
   --price 100
 
 # Personals post (no price field for category 8)
@@ -86,7 +87,8 @@ supost post create \
   --subcategory 130 \
   --name "Missed connection" \
   --body "Saw you at Coupa." \
-  --email "wientjes@cs.stanford.edu"
+  --email "wientjes@cs.stanford.edu" \
+  --ip "2001:db8::1"
 
 # Dry run: validate + render email, no INSERT, no send
 supost post create \
@@ -135,6 +137,7 @@ supost
 │     --name <string>
 │     --body <string>
 │     --email <string>
+│     --ip <address>              (optional IPv4/IPv6 address)
 │     --price <amount>            (required for some categories)
 │     --dry-run                   (validate only, no write)
 ├── post respond <post_id>        # send response email

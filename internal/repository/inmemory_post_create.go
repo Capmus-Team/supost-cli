@@ -22,6 +22,7 @@ func (r *InMemory) CreatePendingPost(_ context.Context, submission domain.PostCr
 		CategoryID:     submission.CategoryID,
 		SubcategoryID:  submission.SubcategoryID,
 		Email:          submission.Email,
+		IP:             submission.IP,
 		Name:           submission.Name,
 		Body:           submission.Body,
 		Status:         0,

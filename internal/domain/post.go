@@ -13,6 +13,7 @@ type Post struct {
 	CategoryID     int64     `json:"category_id" db:"category_id"`
 	SubcategoryID  int64     `json:"subcategory_id" db:"subcategory_id"`
 	Email          string    `json:"email" db:"email"`
+	IP             string    `json:"ip" db:"ip"`
 	Name           string    `json:"name" db:"name"`
 	Body           string    `json:"body" db:"body"`
 	Photo1File     string    `json:"photo1_file_name" db:"photo1_file_name"`

@@ -110,6 +110,7 @@ func TestPostCreateService_Submit_PersistsAndSends(t *testing.T) {
 		Name:          "Red bike for sale",
 		Body:          "Pick up on campus.",
 		Email:         "wientjes@alumni.stanford.edu",
+		IP:            "203.0.113.10",
 		Price:         100,
 		PriceProvided: true,
 	}, false, "https://supost.com", "response@mg.supost.com", sender)
@@ -122,6 +123,9 @@ func TestPostCreateService_Submit_PersistsAndSends(t *testing.T) {
 	}
 	if !sender.sent {
 		t.Fatalf("expected publish email send")
+	}
+	if repo.submission.IP != "203.0.113.10" {
+		t.Fatalf("expected IP to be forwarded to repository, got %q", repo.submission.IP)
 	}
 	if result.PostID != 130031999 {
 		t.Fatalf("unexpected post id %d", result.PostID)
@@ -160,6 +164,33 @@ func TestPostCreateService_Submit_InvalidEmailRejected(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "1 error prohibited this post from being saved") {
 		t.Fatalf("expected formatted validation header, got %v", err)
+	}
+}
+
+func TestPostCreateService_Submit_InvalidIPRejected(t *testing.T) {
+	repo := &mockPostCreateSubmitRepo{
+		categories: []domain.Category{{ID: 5, Name: "for sale/wanted", ShortName: "for sale"}},
+		subcategories: []domain.Subcategory{
+			{ID: 14, CategoryID: 5, Name: "furniture"},
+		},
+	}
+	svc := NewPostCreateService(repo)
+
+	_, err := svc.Submit(context.Background(), domain.PostCreateSubmission{
+		CategoryID:    5,
+		SubcategoryID: 14,
+		Name:          "Red bike for sale",
+		Body:          "Pick up on campus.",
+		Email:         "wientjes@alumni.stanford.edu",
+		IP:            "not-an-ip",
+		Price:         100,
+		PriceProvided: true,
+	}, false, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "IP must be a valid IPv4 or IPv6 address.") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

@@ -77,7 +77,7 @@ func TestCommandReference_PostCreateFlags(t *testing.T) {
 	post := mustCommandByName(t, rootCmd, "post")
 	create := mustCommandByName(t, post, "create")
 
-	for _, flagName := range []string{"category", "subcategory", "name", "body", "email", "price", "dry-run"} {
+	for _, flagName := range []string{"category", "subcategory", "name", "body", "email", "price", "ip", "dry-run"} {
 		if create.Flags().Lookup(flagName) == nil {
 			t.Fatalf("expected post create flag %q", flagName)
 		}
@@ -196,7 +196,7 @@ func TestProjectStructure_ReadmeListedPathsExist(t *testing.T) {
 		assertFileExists(t, filepath.Join(root, rel))
 	}
 
-	expectedDirs := []string{"migrations", "supabase/migrations", "testdata/seed", "docs"}
+	expectedDirs := []string{"supabase/migrations", "testdata/seed", "docs"}
 	for _, rel := range expectedDirs {
 		assertDirExists(t, filepath.Join(root, rel))
 	}

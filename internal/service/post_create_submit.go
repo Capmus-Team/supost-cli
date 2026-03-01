@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -113,6 +114,7 @@ func (s *PostCreateService) validateSubmissionInput(ctx context.Context, input d
 	normalized.Name = strings.TrimSpace(input.Name)
 	normalized.Body = strings.TrimSpace(input.Body)
 	normalized.Email = strings.ToLower(strings.TrimSpace(input.Email))
+	normalized.IP = strings.TrimSpace(input.IP)
 
 	problems := make([]string, 0, 8)
 	if normalized.CategoryID <= 0 {
@@ -131,6 +133,11 @@ func (s *PostCreateService) validateSubmissionInput(ctx context.Context, input d
 		problems = append(problems, "Email is required.")
 	} else if !isStanfordEmail(normalized.Email) {
 		problems = append(problems, "Email must be a Stanford email (e.g., @stanford.edu, @cs.stanford.edu).")
+	}
+	if normalized.IP != "" {
+		if _, err := netip.ParseAddr(normalized.IP); err != nil {
+			problems = append(problems, "IP must be a valid IPv4 or IPv6 address.")
+		}
 	}
 	if domain.CategoryPriceRequired(normalized.CategoryID) {
 		if !normalized.PriceProvided {

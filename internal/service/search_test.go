@@ -8,6 +8,7 @@ import (
 )
 
 type mockSearchRepo struct {
+	query         string
 	categoryID    int64
 	subcategoryID int64
 	page          int
@@ -16,7 +17,8 @@ type mockSearchRepo struct {
 	hasMore       bool
 }
 
-func (m *mockSearchRepo) SearchActivePosts(_ context.Context, categoryID, subcategoryID int64, page, perPage int) ([]domain.Post, bool, error) {
+func (m *mockSearchRepo) SearchActivePosts(_ context.Context, query string, categoryID, subcategoryID int64, page, perPage int) ([]domain.Post, bool, error) {
+	m.query = query
 	m.categoryID = categoryID
 	m.subcategoryID = subcategoryID
 	m.page = page
@@ -31,7 +33,7 @@ func TestSearchService_Search_NormalizesPaging(t *testing.T) {
 	}
 	svc := NewSearchService(repo)
 
-	result, err := svc.Search(context.Background(), 3, 59, 0, 1000)
+	result, err := svc.Search(context.Background(), "", 3, 59, 0, 1000)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -54,7 +56,7 @@ func TestSearchService_Search_ForwardsFilters(t *testing.T) {
 	repo := &mockSearchRepo{}
 	svc := NewSearchService(repo)
 
-	_, err := svc.Search(context.Background(), 5, 9, 2, 100)
+	_, err := svc.Search(context.Background(), "", 5, 9, 2, 100)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -67,11 +69,27 @@ func TestSearchService_Search_ForwardsPageAndPerPage(t *testing.T) {
 	repo := &mockSearchRepo{}
 	svc := NewSearchService(repo)
 
-	_, err := svc.Search(context.Background(), 5, 14, 3, 30)
+	_, err := svc.Search(context.Background(), "", 5, 14, 3, 30)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if repo.page != 3 || repo.perPage != 30 {
 		t.Fatalf("expected forwarded page/per_page 3/30, got %d/%d", repo.page, repo.perPage)
+	}
+}
+
+func TestSearchService_Search_ForwardsQuery(t *testing.T) {
+	repo := &mockSearchRepo{}
+	svc := NewSearchService(repo)
+
+	result, err := svc.Search(context.Background(), " red bike ", 0, 0, 1, 100)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.query != "red bike" {
+		t.Fatalf("expected forwarded query %q, got %q", "red bike", repo.query)
+	}
+	if result.Query != "red bike" {
+		t.Fatalf("expected result query %q, got %q", "red bike", result.Query)
 	}
 }

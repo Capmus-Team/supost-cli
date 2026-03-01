@@ -2,6 +2,7 @@ package domain
 
 // SearchResultPage is the paginated post result contract for search views.
 type SearchResultPage struct {
+	Query         string `json:"query" db:"-"`
 	CategoryID    int64  `json:"category_id" db:"-"`
 	SubcategoryID int64  `json:"subcategory_id" db:"-"`
 	Page          int    `json:"page" db:"-"`

@@ -44,9 +44,12 @@ supost home
 
 # Search results (default: all recent active posts, title: "all posts")
 supost search
+supost search "red bike"
+supost search "Stanford poster"
 supost search --category 5
 supost search --subcategory 14
 supost search --category 5 --subcategory 14
+supost search "red bike" --category 5
 supost search --page 2
 supost search --page 2 --per-page 100
 
@@ -126,7 +129,7 @@ supost serve --port 3000      # custom port
 ```
 supost
 ├── home                          # render homepage
-├── search                        # render all recent active posts
+├── search [query]                # render active posts; optional keyword query over name/body
 │     --category <id>
 │     --subcategory <id>
 │     --page <n>                  (default: 1)

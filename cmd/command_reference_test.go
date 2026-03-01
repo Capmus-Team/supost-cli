@@ -73,6 +73,16 @@ func TestCommandReference_SearchFlags(t *testing.T) {
 	}
 }
 
+func TestCommandReference_SearchAllowsOptionalQueryArgs(t *testing.T) {
+	search := mustCommandByName(t, rootCmd, "search")
+	if err := search.Args(search, []string{}); err != nil {
+		t.Fatalf("expected search command to allow no query args: %v", err)
+	}
+	if err := search.Args(search, []string{"red", "bike"}); err != nil {
+		t.Fatalf("expected search command to allow query args: %v", err)
+	}
+}
+
 func TestCommandReference_PostCreateFlags(t *testing.T) {
 	post := mustCommandByName(t, rootCmd, "post")
 	create := mustCommandByName(t, post, "create")

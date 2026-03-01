@@ -3,11 +3,13 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Capmus-Team/supost-cli/internal/domain"
 )
 
-func (r *Postgres) SearchActivePosts(ctx context.Context, categoryID, subcategoryID int64, page, perPage int) ([]domain.Post, bool, error) {
+func (r *Postgres) SearchActivePosts(ctx context.Context, queryText string, categoryID, subcategoryID int64, page, perPage int) ([]domain.Post, bool, error) {
+	queryText = strings.TrimSpace(queryText)
 	if page < 1 {
 		page = 1
 	}
@@ -17,7 +19,7 @@ func (r *Postgres) SearchActivePosts(ctx context.Context, categoryID, subcategor
 	limit := perPage + 1
 	offset := (page - 1) * perPage
 
-	const query = `
+	const sqlQuery = `
 SELECT
 	id,
 	COALESCE(category_id, 0) AS category_id,
@@ -45,11 +47,15 @@ FROM public.post
 WHERE status = $1
   AND ($2 = 0 OR category_id = $2)
   AND ($3 = 0 OR subcategory_id = $3)
+  AND (
+    $4 = '' OR
+    to_tsvector('simple', COALESCE(name, '') || ' ' || COALESCE(body, '')) @@ plainto_tsquery('simple', $4)
+  )
 ORDER BY time_posted DESC NULLS LAST, id DESC
-LIMIT $4 OFFSET $5
+LIMIT $5 OFFSET $6
 `
 
-	rows, err := r.db.QueryContext(ctx, query, domain.PostStatusActive, categoryID, subcategoryID, limit, offset)
+	rows, err := r.db.QueryContext(ctx, sqlQuery, domain.PostStatusActive, categoryID, subcategoryID, queryText, limit, offset)
 	if err != nil {
 		return nil, false, fmt.Errorf("querying search posts: %w", err)
 	}

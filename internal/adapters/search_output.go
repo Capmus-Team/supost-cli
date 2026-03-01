@@ -3,6 +3,7 @@ package adapters
 import (
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/Capmus-Team/supost-cli/internal/domain"
@@ -29,7 +30,7 @@ func RenderSearchResults(w io.Writer, result domain.SearchResultPage) error {
 		return err
 	}
 
-	title := searchResultTitle()
+	title := searchResultTitle(result.Query)
 	if _, err := fmt.Fprintln(w, ansiSearchHeader+renderHomeHeader(title, searchPageWidth)+ansiReset); err != nil {
 		return err
 	}
@@ -110,6 +111,10 @@ func formatSearchDateHeader(post domain.Post) string {
 	return ts.Format("Mon, Jan 2")
 }
 
-func searchResultTitle() string {
-	return "all posts"
+func searchResultTitle(query string) string {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return "all posts"
+	}
+	return fmt.Sprintf("search: %s", query)
 }

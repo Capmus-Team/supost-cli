@@ -132,3 +132,21 @@ func TestRenderSearchResults_SubcategoryOnlyInfersParentCategoryInBreadcrumb(t *
 		t.Fatalf("missing all-posts title in %q", plain)
 	}
 }
+
+func TestRenderSearchResults_QueryTitle(t *testing.T) {
+	var out bytes.Buffer
+	result := domain.SearchResultPage{
+		Query: "red bike",
+		Page:  1,
+		Posts: []domain.Post{},
+	}
+
+	if err := RenderSearchResults(&out, result); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	plain := stripANSI(out.String())
+	if !strings.Contains(plain, "search: red bike") {
+		t.Fatalf("missing keyword search title in %q", plain)
+	}
+}

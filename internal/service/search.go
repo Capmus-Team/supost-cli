@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Capmus-Team/supost-cli/internal/domain"
 )
@@ -14,7 +15,7 @@ const (
 
 // SearchRepository defines search read operations where consumed.
 type SearchRepository interface {
-	SearchActivePosts(ctx context.Context, categoryID, subcategoryID int64, page, perPage int) ([]domain.Post, bool, error)
+	SearchActivePosts(ctx context.Context, query string, categoryID, subcategoryID int64, page, perPage int) ([]domain.Post, bool, error)
 }
 
 // SearchService orchestrates search page retrieval.
@@ -28,16 +29,18 @@ func NewSearchService(repo SearchRepository) *SearchService {
 }
 
 // Search returns paginated active posts for optional category/subcategory filters.
-func (s *SearchService) Search(ctx context.Context, categoryID, subcategoryID int64, page, perPage int) (domain.SearchResultPage, error) {
+func (s *SearchService) Search(ctx context.Context, query string, categoryID, subcategoryID int64, page, perPage int) (domain.SearchResultPage, error) {
+	query = normalizeSearchQuery(query)
 	page = normalizeSearchPage(page)
 	perPage = normalizeSearchPerPage(perPage)
 
-	posts, hasMore, err := s.repo.SearchActivePosts(ctx, categoryID, subcategoryID, page, perPage)
+	posts, hasMore, err := s.repo.SearchActivePosts(ctx, query, categoryID, subcategoryID, page, perPage)
 	if err != nil {
 		return domain.SearchResultPage{}, err
 	}
 
 	return domain.SearchResultPage{
+		Query:         query,
 		CategoryID:    categoryID,
 		SubcategoryID: subcategoryID,
 		Page:          page,
@@ -62,4 +65,8 @@ func normalizeSearchPerPage(perPage int) int {
 		return maxSearchPerPage
 	}
 	return perPage
+}
+
+func normalizeSearchQuery(query string) string {
+	return strings.TrimSpace(query)
 }

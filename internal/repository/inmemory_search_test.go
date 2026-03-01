@@ -12,14 +12,14 @@ func TestInMemorySearchActivePosts_ReturnsOnlyActiveNewestFirst(t *testing.T) {
 
 	repo := &InMemory{
 		posts: []domain.Post{
-			{ID: 10, Status: domain.PostStatusActive, TimePosted: 200},
-			{ID: 11, Status: 0, TimePosted: 500},
-			{ID: 12, Status: domain.PostStatusActive, TimePosted: 300},
-			{ID: 13, Status: domain.PostStatusActive, TimePosted: 300},
+			{ID: 10, Status: domain.PostStatusActive, TimePosted: 200, Name: "red chair", Body: "great shape"},
+			{ID: 11, Status: 0, TimePosted: 500, Name: "red bike", Body: "inactive"},
+			{ID: 12, Status: domain.PostStatusActive, TimePosted: 300, Name: "bike", Body: "red and fast"},
+			{ID: 13, Status: domain.PostStatusActive, TimePosted: 300, Name: "desk", Body: "campus pickup"},
 		},
 	}
 
-	posts, hasMore, err := repo.SearchActivePosts(context.Background(), 0, 0, 1, 100)
+	posts, hasMore, err := repo.SearchActivePosts(context.Background(), "", 0, 0, 1, 100)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -47,13 +47,13 @@ func TestInMemorySearchActivePosts_Paginates(t *testing.T) {
 
 	repo := &InMemory{
 		posts: []domain.Post{
-			{ID: 30, Status: domain.PostStatusActive, TimePosted: 300},
-			{ID: 20, Status: domain.PostStatusActive, TimePosted: 200},
-			{ID: 10, Status: domain.PostStatusActive, TimePosted: 100},
+			{ID: 30, Status: domain.PostStatusActive, TimePosted: 300, Name: "desk"},
+			{ID: 20, Status: domain.PostStatusActive, TimePosted: 200, Name: "chair"},
+			{ID: 10, Status: domain.PostStatusActive, TimePosted: 100, Name: "lamp"},
 		},
 	}
 
-	firstPage, hasMore, err := repo.SearchActivePosts(context.Background(), 0, 0, 1, 2)
+	firstPage, hasMore, err := repo.SearchActivePosts(context.Background(), "", 0, 0, 1, 2)
 	if err != nil {
 		t.Fatalf("unexpected first-page error: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestInMemorySearchActivePosts_Paginates(t *testing.T) {
 		t.Fatalf("unexpected first-page ids: %d, %d", firstPage[0].ID, firstPage[1].ID)
 	}
 
-	secondPage, hasMore, err := repo.SearchActivePosts(context.Background(), 0, 0, 2, 2)
+	secondPage, hasMore, err := repo.SearchActivePosts(context.Background(), "", 0, 0, 2, 2)
 	if err != nil {
 		t.Fatalf("unexpected second-page error: %v", err)
 	}
@@ -76,5 +76,40 @@ func TestInMemorySearchActivePosts_Paginates(t *testing.T) {
 	}
 	if len(secondPage) != 1 || secondPage[0].ID != 10 {
 		t.Fatalf("unexpected second-page result: %+v", secondPage)
+	}
+}
+
+func TestInMemorySearchActivePosts_QueryMatchesNameOrBody(t *testing.T) {
+	t.Parallel()
+
+	repo := &InMemory{
+		posts: []domain.Post{
+			{ID: 40, Status: domain.PostStatusActive, TimePosted: 400, Name: "Red bike", Body: "Pick up on campus"},
+			{ID: 30, Status: domain.PostStatusActive, TimePosted: 300, Name: "Blue couch", Body: "Stanford poster included"},
+			{ID: 20, Status: domain.PostStatusActive, TimePosted: 200, Name: "Bike lock", Body: "metal"},
+			{ID: 10, Status: 0, TimePosted: 500, Name: "Red bike", Body: "inactive post"},
+		},
+	}
+
+	posts, hasMore, err := repo.SearchActivePosts(context.Background(), "red bike", 0, 0, 1, 100)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if hasMore {
+		t.Fatalf("expected hasMore false")
+	}
+	if len(posts) != 1 || posts[0].ID != 40 {
+		t.Fatalf("expected only active post 40, got %+v", posts)
+	}
+
+	posts, hasMore, err = repo.SearchActivePosts(context.Background(), "stanford poster", 0, 0, 1, 100)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if hasMore {
+		t.Fatalf("expected hasMore false")
+	}
+	if len(posts) != 1 || posts[0].ID != 30 {
+		t.Fatalf("expected post 30 match from body terms, got %+v", posts)
 	}
 }

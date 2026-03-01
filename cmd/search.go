@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Capmus-Team/supost-cli/internal/adapters"
 	"github.com/Capmus-Team/supost-cli/internal/config"
@@ -12,14 +13,17 @@ import (
 )
 
 var searchCmd = &cobra.Command{
-	Use:   "search",
+	Use:   "search [query]",
 	Short: "Render all-post search results",
-	Long:  "Show paginated active posts grouped by posting date.",
+	Long:  "Show paginated active posts grouped by posting date, optionally filtered by keyword query.",
+	Args:  cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {
 			return fmt.Errorf("loading config: %w", err)
 		}
+
+		query := strings.TrimSpace(strings.Join(args, " "))
 
 		categoryID, err := cmd.Flags().GetInt64("category")
 		if err != nil {
@@ -59,7 +63,7 @@ var searchCmd = &cobra.Command{
 		}
 
 		svc := service.NewSearchService(repo)
-		result, err := svc.Search(cmd.Context(), categoryID, subcategoryID, page, perPage)
+		result, err := svc.Search(cmd.Context(), query, categoryID, subcategoryID, page, perPage)
 		if err != nil {
 			return fmt.Errorf("fetching search results: %w", err)
 		}

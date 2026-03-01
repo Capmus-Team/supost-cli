@@ -46,7 +46,7 @@ func TestRenderSearchResults_GroupsByDateAndShowsNextPage(t *testing.T) {
 	plain := stripANSI(out.String())
 	for _, needle := range []string{
 		"SUPost » Stanford, California » housing",
-		"housing",
+		"all posts",
 		"Fri, Feb 27",
 		"Thu, Feb 26",
 		"Shared House - $700",
@@ -128,7 +128,7 @@ func TestRenderSearchResults_SubcategoryOnlyInfersParentCategoryInBreadcrumb(t *
 	if !strings.Contains(plain, "SUPost » Stanford, California » for sale » furniture") {
 		t.Fatalf("missing inferred category+subcategory breadcrumb in %q", plain)
 	}
-	if !strings.Contains(plain, "furniture") {
-		t.Fatalf("missing subcategory title in %q", plain)
+	if !strings.Contains(plain, "all posts") {
+		t.Fatalf("missing all-posts title in %q", plain)
 	}
 }

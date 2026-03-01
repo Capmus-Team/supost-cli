@@ -29,7 +29,7 @@ func RenderSearchResults(w io.Writer, result domain.SearchResultPage) error {
 		return err
 	}
 
-	title := searchResultTitle(result.CategoryID, result.SubcategoryID)
+	title := searchResultTitle()
 	if _, err := fmt.Fprintln(w, ansiSearchHeader+renderHomeHeader(title, searchPageWidth)+ansiReset); err != nil {
 		return err
 	}
@@ -110,12 +110,6 @@ func formatSearchDateHeader(post domain.Post) string {
 	return ts.Format("Mon, Jan 2")
 }
 
-func searchResultTitle(categoryID, subcategoryID int64) string {
-	if sub := lookupSubcategoryName(subcategoryID); sub != "" {
-		return sub
-	}
-	if cat := lookupCategoryName(categoryID); cat != "" {
-		return cat
-	}
-	return "search results"
+func searchResultTitle() string {
+	return "all posts"
 }

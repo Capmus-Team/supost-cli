@@ -13,8 +13,8 @@ import (
 
 var searchCmd = &cobra.Command{
 	Use:   "search",
-	Short: "Render search results",
-	Long:  "Show paginated search results grouped by posting date.",
+	Short: "Render all-post search results",
+	Long:  "Show paginated active posts grouped by posting date.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {

@@ -11,7 +11,7 @@ Works immediately with in-memory seed data — no database, no API keys, no Dock
 ```bash
 go run . version              # → v0.1.0
 go run . home                 # homepage
-go run . search --category 5  # search results
+go run . search               # all recent active posts
 go run . post 130031605       # view a post
 go run . serve                # preview HTTP server at localhost:8080
 ```
@@ -42,10 +42,13 @@ For running the latest code without relying on a globally installed `supost` bin
 # Homepage
 supost home
 
-# Search results with filters + pagination
+# Search results (default: all recent active posts, title: "all posts")
+supost search
 supost search --category 5
 supost search --subcategory 14
-supost search --category 5 --page 2 --per-page 20
+supost search --category 5 --subcategory 14
+supost search --page 2
+supost search --page 2 --per-page 100
 
 # View a single post
 supost post 130031605
@@ -120,7 +123,7 @@ supost serve --port 3000      # custom port
 ```
 supost
 ├── home                          # render homepage
-├── search                        # render search results page
+├── search                        # render all recent active posts
 │     --category <id>
 │     --subcategory <id>
 │     --page <n>                  (default: 1)

@@ -63,6 +63,9 @@ supost signup \
   --phone "+16505551234" \
   --password "strong-password-123"
 
+# Optional: if SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) is set,
+# signup can fall back to admin create-user when email send rate limits are hit.
+
 # List categories (utility)
 supost categories
 ```

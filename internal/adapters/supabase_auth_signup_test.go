@@ -148,3 +148,70 @@ func TestSupabaseAuthSignupClient_SignUp_NoUserIncludesMessage(t *testing.T) {
 		t.Fatalf("expected detailed message in error, got: %v", err)
 	}
 }
+
+func TestSupabaseAuthSignupClient_SignUp_FallsBackToAdminCreateUserOnEmailRateLimit(t *testing.T) {
+	var (
+		publicCalls int
+		adminCalls  int
+		publicAuth  string
+		adminAuth   string
+		adminBody   supabaseAdminCreateUserRequest
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/auth/v1/signup":
+			publicCalls++
+			publicAuth = r.Header.Get("Authorization")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"code":429,"error_code":"over_email_send_rate_limit","msg":"email rate limit exceeded"}`))
+		case "/auth/v1/admin/users":
+			adminCalls++
+			adminAuth = r.Header.Get("Authorization")
+			if err := json.NewDecoder(r.Body).Decode(&adminBody); err != nil {
+				t.Fatalf("decoding admin request body: %v", err)
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"id":"admin-user-1","email":"user@example.com","created_at":"2026-03-01T06:20:00Z","user_metadata":{"display_name":"Greg","phone":"+16505551234"}}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client, err := NewSupabaseAuthSignupClient(server.URL, "sb_publishable_test", "sb_secret_test")
+	if err != nil {
+		t.Fatalf("creating client: %v", err)
+	}
+
+	result, err := client.SignUp(context.Background(), domain.UserSignupSubmission{
+		DisplayName: "Greg",
+		Email:       "user@example.com",
+		Phone:       "+16505551234",
+		Password:    "password123",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if publicCalls != 1 || adminCalls != 1 {
+		t.Fatalf("expected one public and one admin call, got public=%d admin=%d", publicCalls, adminCalls)
+	}
+	if publicAuth != "Bearer sb_publishable_test" {
+		t.Fatalf("unexpected public auth header: %q", publicAuth)
+	}
+	if adminAuth != "Bearer sb_secret_test" {
+		t.Fatalf("unexpected admin auth header: %q", adminAuth)
+	}
+	if adminBody.Email != "user@example.com" || adminBody.Password != "password123" || !adminBody.EmailConfirm {
+		t.Fatalf("unexpected admin payload: %+v", adminBody)
+	}
+	if adminBody.UserMetadata["display_name"] != "Greg" || adminBody.UserMetadata["phone"] != "+16505551234" {
+		t.Fatalf("unexpected admin user metadata: %+v", adminBody.UserMetadata)
+	}
+	if result.UserID != "admin-user-1" {
+		t.Fatalf("unexpected user id: %q", result.UserID)
+	}
+	if result.EmailConfirmationSent {
+		t.Fatalf("expected email confirmation not sent on admin fallback")
+	}
+}

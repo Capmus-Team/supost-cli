@@ -1,0 +1,2 @@
+-- Placeholder migration to align local migration history with remote version 20260227204936.
+-- The corresponding migration has already been applied on the remote database.

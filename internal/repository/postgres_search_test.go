@@ -10,9 +10,6 @@ import (
 func TestBuildSearchActivePostsStatement_UsesDefaultQueryWithoutKeyword(t *testing.T) {
 	querySQL, queryArgs, perPage := buildSearchActivePostsStatement("   ", 7, 11, 2, 25)
 
-	if querySQL != sqlQuerySearchDefault {
-		t.Fatalf("expected default SQL for empty query")
-	}
 	if perPage != 25 {
 		t.Fatalf("expected per_page 25, got %d", perPage)
 	}
@@ -34,31 +31,50 @@ func TestBuildSearchActivePostsStatement_UsesDefaultQueryWithoutKeyword(t *testi
 	if got, ok := queryArgs[4].(int); !ok || got != 25 {
 		t.Fatalf("expected arg4 offset 25, got %#v", queryArgs[4])
 	}
+
+	for _, needle := range []string{
+		"WHERE p.status = $1",
+		"p.category_id = $2",
+		"p.subcategory_id = $3",
+		"ORDER BY p.time_posted DESC, p.id DESC",
+		"LIMIT $4 OFFSET $5",
+	} {
+		if !strings.Contains(querySQL, needle) {
+			t.Fatalf("expected SQL to contain %q", needle)
+		}
+	}
+	if strings.Contains(querySQL, " OR ") {
+		t.Fatalf("did not expect OR-guard filter pattern in SQL: %q", querySQL)
+	}
+	if strings.Contains(querySQL, "NULLS LAST") {
+		t.Fatalf("did not expect NULLS LAST in SQL: %q", querySQL)
+	}
 }
 
 func TestBuildSearchActivePostsStatement_UsesFTSQueryWithKeyword(t *testing.T) {
 	querySQL, queryArgs, perPage := buildSearchActivePostsStatement("  stanford bike  ", 0, 0, 3, 10)
 
-	if querySQL != sqlQuerySearchFTS {
-		t.Fatalf("expected FTS SQL for keyword query")
-	}
 	if perPage != 10 {
 		t.Fatalf("expected per_page 10, got %d", perPage)
 	}
-	if len(queryArgs) != 6 {
-		t.Fatalf("expected 6 args, got %d", len(queryArgs))
+	if len(queryArgs) != 4 {
+		t.Fatalf("expected 4 args, got %d", len(queryArgs))
 	}
-	if got, ok := queryArgs[3].(string); !ok || got != "stanford bike" {
-		t.Fatalf("expected trimmed keyword query, got %#v", queryArgs[3])
+	if got, ok := queryArgs[1].(string); !ok || got != "stanford bike" {
+		t.Fatalf("expected trimmed keyword query, got %#v", queryArgs[1])
 	}
-	if got, ok := queryArgs[4].(int); !ok || got != 11 {
-		t.Fatalf("expected arg4 limit 11, got %#v", queryArgs[4])
+	if got, ok := queryArgs[2].(int); !ok || got != 11 {
+		t.Fatalf("expected arg2 limit 11, got %#v", queryArgs[2])
 	}
-	if got, ok := queryArgs[5].(int); !ok || got != 20 {
-		t.Fatalf("expected arg5 offset 20, got %#v", queryArgs[5])
+	if got, ok := queryArgs[3].(int); !ok || got != 20 {
+		t.Fatalf("expected arg3 offset 20, got %#v", queryArgs[3])
 	}
 
-	for _, needle := range []string{"plainto_tsquery('english', $4)", "p.fts @@ q", "ts_rank(p.fts, q)"} {
+	for _, needle := range []string{
+		"p.fts @@ plainto_tsquery('english', $2)",
+		"ts_rank(p.fts, plainto_tsquery('english', $2))",
+		"LIMIT $3 OFFSET $4",
+	} {
 		if !strings.Contains(querySQL, needle) {
 			t.Fatalf("expected FTS SQL to contain %q", needle)
 		}
@@ -71,10 +87,24 @@ func TestBuildSearchActivePostsStatement_NormalizesPagingDefaults(t *testing.T) 
 	if perPage != 100 {
 		t.Fatalf("expected default per_page 100, got %d", perPage)
 	}
-	if got, ok := queryArgs[4].(int); !ok || got != 101 {
-		t.Fatalf("expected default limit 101, got %#v", queryArgs[4])
+	if got, ok := queryArgs[2].(int); !ok || got != 101 {
+		t.Fatalf("expected default limit 101, got %#v", queryArgs[2])
 	}
-	if got, ok := queryArgs[5].(int); !ok || got != 0 {
-		t.Fatalf("expected default offset 0, got %#v", queryArgs[5])
+	if got, ok := queryArgs[3].(int); !ok || got != 0 {
+		t.Fatalf("expected default offset 0, got %#v", queryArgs[3])
+	}
+}
+
+func TestBuildSearchActivePostsStatement_OmitsUnsetFilters(t *testing.T) {
+	querySQL, queryArgs, _ := buildSearchActivePostsStatement("", 0, 0, 1, 10)
+
+	if len(queryArgs) != 3 {
+		t.Fatalf("expected 3 args, got %d", len(queryArgs))
+	}
+	if strings.Contains(querySQL, "category_id =") {
+		t.Fatalf("did not expect category filter when category is unset")
+	}
+	if strings.Contains(querySQL, "subcategory_id =") {
+		t.Fatalf("did not expect subcategory filter when subcategory is unset")
 	}
 }

@@ -56,6 +56,13 @@ supost search --page 2 --per-page 100
 # View a single post
 supost post 130031605
 
+# User signup (Supabase Auth)
+supost signup \
+  --display-name "Greg Wientjes" \
+  --email "gwientjes@stanford.edu" \
+  --phone "+16505551234" \
+  --password "strong-password-123"
+
 # List categories (utility)
 supost categories
 ```
@@ -171,6 +178,11 @@ supost
 │     --page <n>                  (default: 1)
 │     --per-page <n>              (default: 100)
 ├── post <post_id>                # render single post page
+├── signup                         # create user via Supabase Auth
+│     --display-name <string>     (required)
+│     --email <string>            (required)
+│     --phone <string>            (required, E.164-like format)
+│     --password <string>         (required, min 8 chars)
 ├── post create                   # create-post wizard / submit
 │     --category <id>
 │     --subcategory <id>
@@ -217,6 +229,7 @@ supost-cli/
 │   ├── post.go                      # supost post <id>
 │   ├── post_create.go               # supost post create
 │   ├── post_respond.go              # supost post respond <id>
+│   ├── signup.go                    # supost signup
 │   ├── categories.go                # supost categories
 │   ├── command_reference_test.go    # command/flag contract tests
 │   └── serve.go                     # supost serve
@@ -233,6 +246,7 @@ supost-cli/
 │   │   ├── post_create_submit.go    # post create submit models
 │   │   ├── post_respond.go          # post respond submission/result models
 │   │   ├── search_result.go         # search result page models
+│   │   ├── user_signup.go           # signup submission/result models
 │   │   ├── user.go                  # User / Profile
 │   │   └── errors.go                # domain errors (HTTP-mappable)
 │   ├── service/                     # business logic (the brain)
@@ -242,7 +256,8 @@ supost-cli/
 │   │   ├── post_create.go           # staged create-page flow
 │   │   ├── post_create_submit.go    # create submit + publish email flow
 │   │   ├── post_respond.go          # post response + email flow
-│   │   └── search.go                # search + pagination flow
+│   │   ├── search.go                # search + pagination flow
+│   │   └── user_signup.go           # signup validation + orchestration
 │   ├── repository/                  # data access (swappable)
 │   │   ├── interfaces.go
 │   │   ├── inmemory.go              # zero-dep prototype adapter
@@ -262,6 +277,7 @@ supost-cli/
 │   │   ├── post_create_output.go    # create staged page renderer
 │   │   ├── post_create_submit_output.go
 │   │   ├── post_respond_output.go
+│   │   ├── supabase_auth_signup.go  # Supabase Auth signup adapter
 │   │   ├── page_header.go
 │   │   ├── page_footer.go
 │   │   └── home_cache.go
@@ -320,6 +336,7 @@ DATABASE_URL=                       # read/write Postgres connection
 
 # Supabase
 SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 

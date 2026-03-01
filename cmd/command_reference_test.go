@@ -10,7 +10,7 @@ import (
 )
 
 func TestCommandReference_TopLevelCommandsExist(t *testing.T) {
-	for _, name := range []string{"home", "search", "post", "categories", "serve", "version"} {
+	for _, name := range []string{"home", "search", "post", "categories", "signup", "serve", "version"} {
 		if mustCommandByName(t, rootCmd, name) == nil {
 			t.Fatalf("expected top-level command %q", name)
 		}
@@ -112,6 +112,18 @@ func TestCommandReference_PostRespondFlags(t *testing.T) {
 	}
 }
 
+func TestCommandReference_SignupFlags(t *testing.T) {
+	signup := mustCommandByName(t, rootCmd, "signup")
+	for _, flagName := range []string{"display-name", "email", "phone", "password"} {
+		if signup.Flags().Lookup(flagName) == nil {
+			t.Fatalf("expected signup flag %q", flagName)
+		}
+		if !isRequiredFlag(signup, flagName) {
+			t.Fatalf("expected signup flag %q to be required", flagName)
+		}
+	}
+}
+
 func TestCommandReference_PostAndRespondArgs(t *testing.T) {
 	post := mustCommandByName(t, rootCmd, "post")
 	if err := post.Args(post, []string{}); err == nil {
@@ -156,6 +168,7 @@ func TestProjectStructure_ReadmeListedPathsExist(t *testing.T) {
 		"cmd/post.go",
 		"cmd/post_create.go",
 		"cmd/post_respond.go",
+		"cmd/signup.go",
 		"cmd/categories.go",
 		"cmd/command_reference_test.go",
 		"cmd/serve.go",
@@ -169,6 +182,7 @@ func TestProjectStructure_ReadmeListedPathsExist(t *testing.T) {
 		"internal/domain/post_create_submit.go",
 		"internal/domain/post_respond.go",
 		"internal/domain/search_result.go",
+		"internal/domain/user_signup.go",
 		"internal/domain/user.go",
 		"internal/domain/errors.go",
 		"internal/service/categories.go",
@@ -178,6 +192,7 @@ func TestProjectStructure_ReadmeListedPathsExist(t *testing.T) {
 		"internal/service/post_create_submit.go",
 		"internal/service/post_respond.go",
 		"internal/service/search.go",
+		"internal/service/user_signup.go",
 		"internal/repository/interfaces.go",
 		"internal/repository/inmemory.go",
 		"internal/repository/inmemory_post_create.go",
@@ -195,6 +210,7 @@ func TestProjectStructure_ReadmeListedPathsExist(t *testing.T) {
 		"internal/adapters/post_create_output.go",
 		"internal/adapters/post_create_submit_output.go",
 		"internal/adapters/post_respond_output.go",
+		"internal/adapters/supabase_auth_signup.go",
 		"internal/adapters/page_header.go",
 		"internal/adapters/page_footer.go",
 		"internal/adapters/home_cache.go",

@@ -11,6 +11,8 @@ port: 8080
 database_url: ""
 supabase_url: ""
 supabase_anon_key: ""
+supabase_publishable_key: ""
+supabase_secret_key: ""
 
 # Publish-link email + URL config
 supost_base_url: "https://supost.com"

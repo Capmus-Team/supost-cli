@@ -19,11 +19,12 @@ func (m *mockPostRespondRepo) GetPostByID(_ context.Context, _ int64) (domain.Po
 	return m.post, nil
 }
 
-func (m *mockPostRespondRepo) CreateResponseMessage(_ context.Context, _ int64, replyToEmail, message, _ string) (domain.Message, error) {
+func (m *mockPostRespondRepo) CreateResponseMessage(_ context.Context, _ int64, replyToEmail, message, ip, _ string) (domain.Message, error) {
 	m.saveCalled = true
 	m.savedMessage.Email = replyToEmail
 	m.savedMessage.RawEmail = replyToEmail
 	m.savedMessage.Message = message
+	m.savedMessage.IP = ip
 	if m.savedMessage.ID == 0 {
 		m.savedMessage.ID = 77
 	}
@@ -90,6 +91,7 @@ func TestPostRespondService_SendAndPersist(t *testing.T) {
 		PostID:  130031908,
 		Message: "Hello, I want to buy your bike",
 		ReplyTo: "gwientjes@gmail.com",
+		IP:      "198.51.100.7",
 	}, false, "https://supost.com", "response@mg.supost.com", sender)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -105,6 +107,9 @@ func TestPostRespondService_SendAndPersist(t *testing.T) {
 	}
 	if sender.last.ReplyTo != "gwientjes@gmail.com" {
 		t.Fatalf("unexpected reply-to %q", sender.last.ReplyTo)
+	}
+	if repo.savedMessage.IP != "198.51.100.7" {
+		t.Fatalf("expected ip to be persisted, got %q", repo.savedMessage.IP)
 	}
 }
 
@@ -149,6 +154,22 @@ func TestPostRespondService_ValidationReplyToEmailFormat(t *testing.T) {
 		t.Fatalf("expected validation error")
 	}
 	if !strings.Contains(err.Error(), "reply_to must be a valid email") {
+		t.Fatalf("unexpected error %v", err)
+	}
+}
+
+func TestPostRespondService_ValidationIPFormat(t *testing.T) {
+	svc := NewPostRespondService(&mockPostRespondRepo{})
+	_, err := svc.Respond(context.Background(), domain.PostRespondSubmission{
+		PostID:  130031802,
+		Message: "Hello, I want to buy your bike",
+		ReplyTo: "gwientjes@gmail.com",
+		IP:      "not-an-ip",
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPostRespondSender{})
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "ip must be a valid IPv4 or IPv6 address") {
 		t.Fatalf("unexpected error %v", err)
 	}
 }

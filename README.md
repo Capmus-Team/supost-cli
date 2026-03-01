@@ -103,7 +103,8 @@ supost post create \
 # Send a response email to the post owner (+ saves to messages table)
 supost post respond 130031783 \
   --message "Hello, I want to buy your bike" \
-  --reply-to "gwientjes@gmail.com"
+  --reply-to "gwientjes@gmail.com" \
+  --ip "198.51.100.7"
 
 # Dry run: validate + render email, don't send, don't persist
 supost post respond 130031783 \
@@ -143,6 +144,7 @@ supost
 ├── post respond <post_id>        # send response email
 │     --message <string>          (required)
 │     --reply-to <email>          (required)
+│     --ip <address>              (optional IPv4/IPv6 address)
 │     --dry-run                   (validate only, no send)
 ├── categories                    # list categories + subcategories
 ├── serve                         # preview HTTP server

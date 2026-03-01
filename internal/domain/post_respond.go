@@ -7,6 +7,7 @@ type PostRespondSubmission struct {
 	PostID    int64  `json:"post_id" db:"post_id"`
 	Message   string `json:"message" db:"message"`
 	ReplyTo   string `json:"reply_to" db:"reply_to"`
+	IP        string `json:"ip" db:"ip"`
 	UserAgent string `json:"user_agent" db:"user_agent"`
 }
 

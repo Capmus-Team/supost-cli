@@ -35,6 +35,10 @@ var postRespondCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("reading reply-to flag: %w", err)
 		}
+		ip, err := cmd.Flags().GetString("ip")
+		if err != nil {
+			return fmt.Errorf("reading ip flag: %w", err)
+		}
 		dryRun, err := cmd.Flags().GetBool("dry-run")
 		if err != nil {
 			return fmt.Errorf("reading dry-run flag: %w", err)
@@ -82,6 +86,7 @@ var postRespondCmd = &cobra.Command{
 				PostID:    postID,
 				Message:   strings.TrimSpace(message),
 				ReplyTo:   strings.TrimSpace(replyTo),
+				IP:        strings.TrimSpace(ip),
 				UserAgent: "supost-cli",
 			},
 			dryRun,
@@ -100,6 +105,7 @@ func init() {
 	postCmd.AddCommand(postRespondCmd)
 	postRespondCmd.Flags().String("message", "", "response message body")
 	postRespondCmd.Flags().String("reply-to", "", "reply-to email")
+	postRespondCmd.Flags().String("ip", "", "sender IP address (optional)")
 	postRespondCmd.Flags().Bool("dry-run", false, "validate and render email without sending or persisting")
 	_ = postRespondCmd.MarkFlagRequired("message")
 	_ = postRespondCmd.MarkFlagRequired("reply-to")

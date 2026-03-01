@@ -88,7 +88,7 @@ func TestCommandReference_PostRespondFlags(t *testing.T) {
 	post := mustCommandByName(t, rootCmd, "post")
 	respond := mustCommandByName(t, post, "respond")
 
-	for _, flagName := range []string{"message", "reply-to", "dry-run"} {
+	for _, flagName := range []string{"message", "reply-to", "ip", "dry-run"} {
 		if respond.Flags().Lookup(flagName) == nil {
 			t.Fatalf("expected post respond flag %q", flagName)
 		}

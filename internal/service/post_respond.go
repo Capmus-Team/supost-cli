@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -17,7 +18,7 @@ const (
 // PostRespondRepository defines post lookup + message persistence operations.
 type PostRespondRepository interface {
 	GetPostByID(ctx context.Context, postID int64) (domain.Post, error)
-	CreateResponseMessage(ctx context.Context, postID int64, replyToEmail, message, userAgent string) (domain.Message, error)
+	CreateResponseMessage(ctx context.Context, postID int64, replyToEmail, message, ip, userAgent string) (domain.Message, error)
 }
 
 // PostRespondEmailSender defines response-email side effects.
@@ -92,7 +93,7 @@ func (s *PostRespondService) Respond(
 	}
 	result.EmailSent = true
 
-	saved, err := s.repo.CreateResponseMessage(ctx, post.ID, result.ReplyTo, normalized.Message, normalized.UserAgent)
+	saved, err := s.repo.CreateResponseMessage(ctx, post.ID, result.ReplyTo, normalized.Message, normalized.IP, normalized.UserAgent)
 	if err != nil {
 		return domain.PostRespondResult{}, err
 	}
@@ -107,9 +108,10 @@ func normalizePostRespondInput(input domain.PostRespondSubmission) (domain.PostR
 	normalized := input
 	normalized.Message = strings.TrimSpace(input.Message)
 	normalized.ReplyTo = strings.ToLower(strings.TrimSpace(input.ReplyTo))
+	normalized.IP = strings.TrimSpace(input.IP)
 	normalized.UserAgent = strings.TrimSpace(input.UserAgent)
 
-	problems := make([]string, 0, 4)
+	problems := make([]string, 0, 5)
 	if normalized.PostID <= 0 {
 		problems = append(problems, "post_id is required")
 	}
@@ -120,6 +122,11 @@ func normalizePostRespondInput(input domain.PostRespondSubmission) (domain.PostR
 		problems = append(problems, "reply_to is required")
 	} else if !isValidEmail(normalized.ReplyTo) {
 		problems = append(problems, "reply_to must be a valid email")
+	}
+	if normalized.IP != "" {
+		if _, err := netip.ParseAddr(normalized.IP); err != nil {
+			problems = append(problems, "ip must be a valid IPv4 or IPv6 address")
+		}
 	}
 
 	if len(problems) > 0 {

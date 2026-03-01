@@ -7,7 +7,7 @@ import (
 	"github.com/Capmus-Team/supost-cli/internal/domain"
 )
 
-func (r *InMemory) CreateResponseMessage(_ context.Context, postID int64, replyToEmail, message, userAgent string) (domain.Message, error) {
+func (r *InMemory) CreateResponseMessage(_ context.Context, postID int64, replyToEmail, message, ip, userAgent string) (domain.Message, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -17,6 +17,7 @@ func (r *InMemory) CreateResponseMessage(_ context.Context, postID int64, replyT
 		ID:        id,
 		PostID:    postID,
 		Message:   message,
+		IP:        ip,
 		Email:     replyToEmail,
 		RawEmail:  replyToEmail,
 		Source:    "cli",

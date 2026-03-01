@@ -81,7 +81,7 @@ SELECT
 	COALESCE(updated_at, created_at, now()) AS updated_at
 FROM public.post
 WHERE status = $1
-ORDER BY time_posted DESC NULLS LAST, id DESC
+ORDER BY public.post.time_posted DESC, public.post.id DESC
 LIMIT $2
 `
 
@@ -235,7 +235,7 @@ SELECT
 FROM public.post
 WHERE status = $1
   AND category_id = $2
-ORDER BY time_posted DESC NULLS LAST, id DESC
+ORDER BY public.post.time_posted DESC, public.post.id DESC
 LIMIT $3
 `
 
@@ -346,18 +346,22 @@ ORDER BY category_id ASC, id ASC
 func (r *Postgres) ListHomeCategorySections(ctx context.Context) ([]domain.HomeCategorySection, error) {
 	const query = `
 SELECT
-	COALESCE(category_id, 0) AS category_id,
-	MAX(
+	c.id AS category_id,
+	latest.last_posted_at
+FROM public.category c
+JOIN LATERAL (
+	SELECT
 		COALESCE(
-			time_posted_at,
-			CASE WHEN COALESCE(time_posted, 0) > 0 THEN to_timestamp(time_posted) END
-		)
-	) AS last_posted_at
-FROM public.post
-WHERE status = $1
-  AND category_id IS NOT NULL
-GROUP BY category_id
-ORDER BY category_id ASC
+			p.time_posted_at,
+			CASE WHEN COALESCE(p.time_posted, 0) > 0 THEN to_timestamp(p.time_posted) END
+		) AS last_posted_at
+	FROM public.post p
+	WHERE p.status = $1
+	  AND p.category_id = c.id
+	ORDER BY p.time_posted DESC, p.id DESC
+	LIMIT 1
+) latest ON true
+ORDER BY c.id ASC
 `
 
 	rows, err := r.db.QueryContext(ctx, query, domain.PostStatusActive)

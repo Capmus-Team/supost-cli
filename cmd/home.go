@@ -105,12 +105,15 @@ var homeCmd = &cobra.Command{
 			fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading category section cache: %v\n", sectionsErr)
 		}
 
-		featuredJobs, err = svc.ListRecentActiveByCategory(cmd.Context(), domain.CategoryJobsOffCampus, featuredJobPostLimit)
-		if err != nil {
-			if cfg.Verbose {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading featured job posts: %v\n", err)
+		featuredJobs = selectFeaturedJobsFromPosts(posts, featuredJobPostLimit)
+		if len(featuredJobs) < featuredJobPostLimit {
+			featuredJobs, err = svc.ListRecentActiveByCategory(cmd.Context(), domain.CategoryJobsOffCampus, featuredJobPostLimit)
+			if err != nil {
+				if cfg.Verbose {
+					fmt.Fprintf(cmd.ErrOrStderr(), "warning: loading featured job posts: %v\n", err)
+				}
+				featuredJobs = nil
 			}
-			featuredJobs = nil
 		}
 
 		return renderHomeOutput(cmd, cfg.Format, posts, featuredJobs, sections)
@@ -154,4 +157,22 @@ func renderHomeOutput(cmd *cobra.Command, format string, posts []domain.Post, fe
 		return adapters.RenderHomePosts(cmd.OutOrStdout(), posts, featuredJobs, sections)
 	}
 	return adapters.Render(format, posts)
+}
+
+func selectFeaturedJobsFromPosts(posts []domain.Post, limit int) []domain.Post {
+	if limit <= 0 || len(posts) == 0 {
+		return nil
+	}
+
+	featured := make([]domain.Post, 0, limit)
+	for _, post := range posts {
+		if post.CategoryID != domain.CategoryJobsOffCampus {
+			continue
+		}
+		featured = append(featured, post)
+		if len(featured) == limit {
+			break
+		}
+	}
+	return featured
 }

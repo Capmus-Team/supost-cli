@@ -107,6 +107,9 @@ supost post create \
 - Use `--photo` up to 4 times.
 - Files are uploaded only on real submit (no `--dry-run`).
 - Uploaded keys use this format: `v2/posts/{post_id}/{uuid}.{ext}`.
+- Two image variants are created per upload:
+  - post photo: max width `340px`
+  - ticker photo: max width `220px`
 - Extension is preserved when possible (`.jpg`, `.png`, `.webp`, etc.).
 - Photo rows are written to `public.photo` with `position` `0..3`.
 

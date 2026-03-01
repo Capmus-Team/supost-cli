@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -34,5 +35,31 @@ func TestLoadPostCreatePhotos_RejectsMoreThanFour(t *testing.T) {
 	_, err := loadPostCreatePhotos([]string{"1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg"})
 	if err == nil {
 		t.Fatalf("expected validation error")
+	}
+}
+
+func TestLoadPostCreatePhotos_RejectsBlankPath(t *testing.T) {
+	_, err := loadPostCreatePhotos([]string{"   "})
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "blank") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestLoadPostCreatePhotos_RejectsEmptyFile(t *testing.T) {
+	dir := t.TempDir()
+	empty := filepath.Join(dir, "empty.jpg")
+	if err := os.WriteFile(empty, []byte{}, 0o600); err != nil {
+		t.Fatalf("writing empty file: %v", err)
+	}
+
+	_, err := loadPostCreatePhotos([]string{empty})
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

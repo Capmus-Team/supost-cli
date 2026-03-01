@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net/http"
+	"image"
+	"image/gif"
+	"image/jpeg"
+	"image/png"
 	"path/filepath"
 	"strings"
 
@@ -19,6 +22,8 @@ const (
 	defaultS3PhotoRegion = "us-east-1"
 	defaultS3PhotoPrefix = "v2/posts"
 	defaultPhotoExt      = ".jpg"
+	maxPostPhotoWidth    = 340
+	maxTickerPhotoWidth  = 220
 )
 
 // S3PostPhotoUploader stores post photos in S3 under v2/posts/{post_id}/{uuid}.{ext}.
@@ -82,30 +87,119 @@ func (u *S3PostPhotoUploader) UploadPostPhoto(
 		return domain.PostCreateSavedPhoto{}, fmt.Errorf("photo content is empty")
 	}
 
-	ext := photoFileExtension(photo.FileName, photo.ContentType)
-	key := fmt.Sprintf("%s/%d/%s%s", u.prefix, postID, uuid.NewString(), ext)
-
-	contentType := strings.TrimSpace(photo.ContentType)
-	if contentType == "" {
-		contentType = http.DetectContentType(photo.Content)
+	decoded, formatName, err := image.Decode(bytes.NewReader(photo.Content))
+	if err != nil {
+		return domain.PostCreateSavedPhoto{}, fmt.Errorf("decoding image: %w", err)
 	}
 
-	_, err := u.client.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:      aws.String(u.bucket),
-		Key:         aws.String(key),
-		Body:        bytes.NewReader(photo.Content),
-		ContentType: aws.String(contentType),
-	})
+	contentType, ext := imageOutputFormat(formatName, photo.FileName, photo.ContentType)
+	postImage := resizeToMaxWidth(decoded, maxPostPhotoWidth)
+	tickerImage := resizeToMaxWidth(decoded, maxTickerPhotoWidth)
+
+	postBytes, err := encodeImageBytes(postImage, contentType)
 	if err != nil {
+		return domain.PostCreateSavedPhoto{}, fmt.Errorf("encoding post image: %w", err)
+	}
+	tickerBytes, err := encodeImageBytes(tickerImage, contentType)
+	if err != nil {
+		return domain.PostCreateSavedPhoto{}, fmt.Errorf("encoding ticker image: %w", err)
+	}
+
+	objectID := uuid.NewString()
+	key := fmt.Sprintf("%s/%d/%s%s", u.prefix, postID, objectID, ext)
+	tickerKey := fmt.Sprintf("%s/%d/ticker_%s%s", u.prefix, postID, objectID, ext)
+
+	if err := u.putObject(ctx, key, postBytes, contentType); err != nil {
 		return domain.PostCreateSavedPhoto{}, fmt.Errorf("put object %q: %w", key, err)
+	}
+	if err := u.putObject(ctx, tickerKey, tickerBytes, contentType); err != nil {
+		return domain.PostCreateSavedPhoto{}, fmt.Errorf("put object %q: %w", tickerKey, err)
 	}
 
 	return domain.PostCreateSavedPhoto{
 		PostID:      postID,
 		S3Key:       key,
-		TickerS3Key: "",
+		TickerS3Key: tickerKey,
 		Position:    photo.Position,
 	}, nil
+}
+
+func (u *S3PostPhotoUploader) putObject(ctx context.Context, key string, content []byte, contentType string) error {
+	_, err := u.client.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(u.bucket),
+		Key:         aws.String(key),
+		Body:        bytes.NewReader(content),
+		ContentType: aws.String(contentType),
+	})
+	return err
+}
+
+func resizeToMaxWidth(src image.Image, maxWidth int) image.Image {
+	if maxWidth <= 0 {
+		return src
+	}
+	bounds := src.Bounds()
+	srcW := bounds.Dx()
+	srcH := bounds.Dy()
+	if srcW <= 0 || srcH <= 0 || srcW <= maxWidth {
+		return src
+	}
+
+	dstW := maxWidth
+	dstH := srcH * dstW / srcW
+	if dstH <= 0 {
+		dstH = 1
+	}
+
+	dst := image.NewRGBA(image.Rect(0, 0, dstW, dstH))
+	for y := 0; y < dstH; y++ {
+		srcY := bounds.Min.Y + (y * srcH / dstH)
+		for x := 0; x < dstW; x++ {
+			srcX := bounds.Min.X + (x * srcW / dstW)
+			dst.Set(x, y, src.At(srcX, srcY))
+		}
+	}
+	return dst
+}
+
+func imageOutputFormat(decodedFormat string, fileName string, suppliedContentType string) (contentType string, ext string) {
+	switch strings.ToLower(strings.TrimSpace(decodedFormat)) {
+	case "png":
+		return "image/png", ".png"
+	case "gif":
+		return "image/gif", ".gif"
+	case "jpeg":
+		return "image/jpeg", ".jpg"
+	}
+
+	ext = photoFileExtension(fileName, suppliedContentType)
+	switch ext {
+	case ".png":
+		return "image/png", ".png"
+	case ".gif":
+		return "image/gif", ".gif"
+	default:
+		return "image/jpeg", ".jpg"
+	}
+}
+
+func encodeImageBytes(img image.Image, contentType string) ([]byte, error) {
+	var buf bytes.Buffer
+	switch strings.ToLower(strings.TrimSpace(contentType)) {
+	case "image/png":
+		if err := png.Encode(&buf, img); err != nil {
+			return nil, err
+		}
+	case "image/gif":
+		if err := gif.Encode(&buf, img, nil); err != nil {
+			return nil, err
+		}
+	default:
+		if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 85}); err != nil {
+			return nil, err
+		}
+	}
+	return buf.Bytes(), nil
 }
 
 func photoFileExtension(fileName string, contentType string) string {

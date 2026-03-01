@@ -458,3 +458,68 @@ func TestPostCreateService_Submit_TooManyPhotosRejected(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestPostCreateService_Submit_RejectsMissingPhotoUploaderWhenPhotosProvided(t *testing.T) {
+	repo := &mockPostCreateSubmitRepo{
+		categories: []domain.Category{{ID: 5, Name: "for sale/wanted", ShortName: "for sale"}},
+		subcategories: []domain.Subcategory{
+			{ID: 14, CategoryID: 5, Name: "furniture"},
+		},
+		persisted: domain.PostCreatePersisted{
+			PostID:      130031999,
+			AccessToken: "abcdef",
+			PostedAt:    time.Now(),
+		},
+	}
+	sender := &mockPublishSender{}
+	svc := NewPostCreateService(repo)
+
+	_, err := svc.Submit(context.Background(), domain.PostCreateSubmission{
+		CategoryID:    5,
+		SubcategoryID: 14,
+		Name:          "Red bike for sale",
+		Body:          "Pick up on campus.",
+		Email:         "wientjes@alumni.stanford.edu",
+		Price:         100,
+		PriceProvided: true,
+		Photos: []domain.PostCreatePhotoUpload{
+			{FileName: "photo-1.jpg", ContentType: "image/jpeg", Content: []byte("image-1")},
+		},
+	}, false, "https://supost.com", "response@mg.supost.com", sender, nil)
+	if err == nil {
+		t.Fatalf("expected uploader required error")
+	}
+	if !strings.Contains(err.Error(), "photo uploader is required") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPostCreateService_Submit_DryRunAllowsPhotosWithoutUploader(t *testing.T) {
+	repo := &mockPostCreateSubmitRepo{
+		categories: []domain.Category{{ID: 5, Name: "for sale/wanted", ShortName: "for sale"}},
+		subcategories: []domain.Subcategory{
+			{ID: 14, CategoryID: 5, Name: "furniture"},
+		},
+	}
+	sender := &mockPublishSender{}
+	svc := NewPostCreateService(repo)
+
+	result, err := svc.Submit(context.Background(), domain.PostCreateSubmission{
+		CategoryID:    5,
+		SubcategoryID: 14,
+		Name:          "Red bike for sale",
+		Body:          "Pick up on campus.",
+		Email:         "wientjes@alumni.stanford.edu",
+		Price:         100,
+		PriceProvided: true,
+		Photos: []domain.PostCreatePhotoUpload{
+			{FileName: "photo-1.jpg", ContentType: "image/jpeg", Content: []byte("image-1")},
+		},
+	}, true, "https://supost.com", "response@mg.supost.com", sender, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.PhotoCount != 1 {
+		t.Fatalf("expected photo_count=1, got %d", result.PhotoCount)
+	}
+}

@@ -8,6 +8,9 @@
 - Implemented S3 uploader adapter that uploads to:
   - `v2/posts/{post_id}/{random_hex}.{ext}`
   - preserves file extension when valid; otherwise defaults to `.jpg`
+  - generates two variants per photo:
+    - post image: max width 340px
+    - ticker image: max width 220px
 - Persists uploaded photo metadata to `public.photo` via repository `SavePostPhotos`.
 - Added config keys:
   - `S3_PHOTO_BUCKET`

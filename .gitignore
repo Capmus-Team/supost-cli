@@ -13,3 +13,4 @@ coverage.out
 .env
 supabase/.temp
 .gocache
+.gomodcache

@@ -32,7 +32,6 @@ SELECT
 	) AS has_image,
 	COALESCE(p.created_at, now()) AS created_at,
 	COALESCE(p.updated_at, p.created_at, now()) AS updated_at
-FROM public.post p
 `
 
 func (r *Postgres) SearchActivePosts(ctx context.Context, queryText string, categoryID, subcategoryID int64, page, perPage int) ([]domain.Post, bool, error) {
@@ -101,14 +100,13 @@ func buildSearchActivePostsStatement(queryText string, categoryID, subcategoryID
 	}
 
 	orderBy := "p.time_posted DESC, p.id DESC"
+	fromClause := "FROM public.post p"
 	if queryText != "" {
 		args = append(args, queryText)
 		queryPos := len(args)
-		whereClauses = append(whereClauses, fmt.Sprintf("p.fts @@ plainto_tsquery('english', $%d)", queryPos))
-		orderBy = fmt.Sprintf(
-			"ts_rank(p.fts, plainto_tsquery('english', $%d)) DESC, p.time_posted DESC, p.id DESC",
-			queryPos,
-		)
+		fromClause = fmt.Sprintf("FROM public.post p\nCROSS JOIN plainto_tsquery('english', $%d) q", queryPos)
+		whereClauses = append(whereClauses, "p.fts @@ q")
+		orderBy = "ts_rank(p.fts, q) DESC, p.time_posted DESC, p.id DESC"
 	}
 
 	limit := perPage + 1
@@ -119,6 +117,7 @@ func buildSearchActivePostsStatement(queryText string, categoryID, subcategoryID
 	offsetPos := len(args)
 
 	querySQL := sqlQuerySearchSelect +
+		"\n" + fromClause +
 		"\nWHERE " + strings.Join(whereClauses, "\n  AND ") +
 		"\nORDER BY " + orderBy +
 		fmt.Sprintf("\nLIMIT $%d OFFSET $%d\n", limitPos, offsetPos)

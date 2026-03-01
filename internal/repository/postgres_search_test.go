@@ -36,6 +36,7 @@ func TestBuildSearchActivePostsStatement_UsesDefaultQueryWithoutKeyword(t *testi
 		"WHERE p.status = $1",
 		"p.category_id = $2",
 		"p.subcategory_id = $3",
+		"FROM public.post p",
 		"ORDER BY p.time_posted DESC, p.id DESC",
 		"LIMIT $4 OFFSET $5",
 	} {
@@ -71,8 +72,9 @@ func TestBuildSearchActivePostsStatement_UsesFTSQueryWithKeyword(t *testing.T) {
 	}
 
 	for _, needle := range []string{
-		"p.fts @@ plainto_tsquery('english', $2)",
-		"ts_rank(p.fts, plainto_tsquery('english', $2))",
+		"CROSS JOIN plainto_tsquery('english', $2) q",
+		"p.fts @@ q",
+		"ts_rank(p.fts, q)",
 		"LIMIT $3 OFFSET $4",
 	} {
 		if !strings.Contains(querySQL, needle) {

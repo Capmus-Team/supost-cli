@@ -75,7 +75,8 @@ SELECT
 		COALESCE(image_source1, '') <> '' OR
 		COALESCE(image_source2, '') <> '' OR
 		COALESCE(image_source3, '') <> '' OR
-		COALESCE(image_source4, '') <> ''
+		COALESCE(image_source4, '') <> '' OR
+		EXISTS (SELECT 1 FROM public.photo ph WHERE ph.post_id = public.post.id)
 	) AS has_image,
 	COALESCE(created_at, now()) AS created_at,
 	COALESCE(updated_at, created_at, now()) AS updated_at
@@ -138,10 +139,26 @@ SELECT
 	COALESCE(photo2_file_name, '') AS photo2_file_name,
 	COALESCE(photo3_file_name, '') AS photo3_file_name,
 	COALESCE(photo4_file_name, '') AS photo4_file_name,
-	COALESCE(image_source1, '') AS image_source1,
-	COALESCE(image_source2, '') AS image_source2,
-	COALESCE(image_source3, '') AS image_source3,
-	COALESCE(image_source4, '') AS image_source4,
+	COALESCE(
+		(SELECT ph.s3_key FROM public.photo ph WHERE ph.post_id = public.post.id AND ph.position = 0 LIMIT 1),
+		COALESCE(image_source1, ''),
+		''
+	) AS image_source1,
+	COALESCE(
+		(SELECT ph.s3_key FROM public.photo ph WHERE ph.post_id = public.post.id AND ph.position = 1 LIMIT 1),
+		COALESCE(image_source2, ''),
+		''
+	) AS image_source2,
+	COALESCE(
+		(SELECT ph.s3_key FROM public.photo ph WHERE ph.post_id = public.post.id AND ph.position = 2 LIMIT 1),
+		COALESCE(image_source3, ''),
+		''
+	) AS image_source3,
+	COALESCE(
+		(SELECT ph.s3_key FROM public.photo ph WHERE ph.post_id = public.post.id AND ph.position = 3 LIMIT 1),
+		COALESCE(image_source4, ''),
+		''
+	) AS image_source4,
 	COALESCE(status, 0) AS status,
 	COALESCE(time_posted, 0) AS time_posted,
 	COALESCE(time_modified, 0) AS time_modified,
@@ -158,7 +175,8 @@ SELECT
 		COALESCE(image_source1, '') <> '' OR
 		COALESCE(image_source2, '') <> '' OR
 		COALESCE(image_source3, '') <> '' OR
-		COALESCE(image_source4, '') <> ''
+		COALESCE(image_source4, '') <> '' OR
+		EXISTS (SELECT 1 FROM public.photo ph WHERE ph.post_id = public.post.id)
 	) AS has_image,
 	COALESCE(created_at, now()) AS created_at,
 	COALESCE(updated_at, created_at, now()) AS updated_at
@@ -228,7 +246,8 @@ SELECT
 		COALESCE(image_source1, '') <> '' OR
 		COALESCE(image_source2, '') <> '' OR
 		COALESCE(image_source3, '') <> '' OR
-		COALESCE(image_source4, '') <> ''
+		COALESCE(image_source4, '') <> '' OR
+		EXISTS (SELECT 1 FROM public.photo ph WHERE ph.post_id = public.post.id)
 	) AS has_image,
 	COALESCE(created_at, now()) AS created_at,
 	COALESCE(updated_at, created_at, now()) AS updated_at

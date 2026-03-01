@@ -82,6 +82,8 @@ supost post create \
   --body "Pick up on campus." \
   --email "wientjes@alumni.stanford.edu" \
   --ip "203.0.113.10" \
+  --photo "/path/to/bike-front.jpg" \
+  --photo "/path/to/bike-side.png" \
   --price 100
 
 # Personals post (no price field for category 8)
@@ -98,6 +100,37 @@ supost post create \
   --category 5 --subcategory 14 \
   --name "Test" --body "Test" --email "test@stanford.edu" --price 50 \
   --dry-run
+```
+
+### Photo Upload Behavior
+
+- Use `--photo` up to 4 times.
+- Files are uploaded only on real submit (no `--dry-run`).
+- Uploaded keys use this format: `v2/posts/{post_id}/{uuid}.{ext}`.
+- Extension is preserved when possible (`.jpg`, `.png`, `.webp`, etc.).
+- Photo rows are written to `public.photo` with `position` `0..3`.
+
+```bash
+# 1 photo
+supost post create \
+  --category 5 --subcategory 14 \
+  --name "Desk for sale" \
+  --body "Pickup on campus" \
+  --email "wientjes@alumni.stanford.edu" \
+  --price 40 \
+  --photo "/absolute/path/desk.jpg"
+
+# up to 4 photos
+supost post create \
+  --category 5 --subcategory 14 \
+  --name "Bike" \
+  --body "Great condition" \
+  --email "wientjes@alumni.stanford.edu" \
+  --price 120 \
+  --photo "/absolute/path/1.jpg" \
+  --photo "/absolute/path/2.jpg" \
+  --photo "/absolute/path/3.jpg" \
+  --photo "/absolute/path/4.jpg"
 ```
 
 ### Respond to a Post
@@ -142,6 +175,7 @@ supost
 │     --body <string>
 │     --email <string>
 │     --ip <address>              (optional IPv4/IPv6 address)
+│     --photo <path>              (optional, repeat up to 4 times)
 │     --price <amount>            (required for some categories)
 │     --dry-run                   (validate only, no write)
 ├── post respond <post_id>        # send response email
@@ -292,6 +326,12 @@ MAILGUN_API_KEY=
 MAILGUN_FROM_EMAIL=
 MAILGUN_API_BASE=                   # https://api.mailgun.net (US) or https://api.eu.mailgun.net (EU)
 MAILGUN_SEND_TIMEOUT=10s
+
+# S3 photos (used by `post create --photo`)
+S3_PHOTO_BUCKET=supost-prod
+S3_PHOTO_PREFIX=v2/posts
+S3_PHOTO_REGION=us-east-1
+S3_PHOTO_AWS_PROFILE=
 
 # App
 SUPOST_BASE_URL=https://n.supost.com

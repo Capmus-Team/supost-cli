@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Capmus-Team/supost-cli/internal/domain"
@@ -42,6 +44,41 @@ func (r *InMemory) CreatePendingPost(_ context.Context, submission domain.PostCr
 		AccessToken: submission.AccessToken,
 		PostedAt:    now,
 	}, nil
+}
+
+func (r *InMemory) SavePostPhotos(_ context.Context, photos []domain.PostCreateSavedPhoto) error {
+	if len(photos) == 0 {
+		return nil
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, photo := range photos {
+		if photo.PostID <= 0 {
+			return fmt.Errorf("post_id must be positive")
+		}
+		s3Key := strings.TrimSpace(photo.S3Key)
+		if s3Key == "" {
+			return fmt.Errorf("s3_key is required")
+		}
+		r.photos = append(r.photos, domain.PostCreateSavedPhoto{
+			PostID:      photo.PostID,
+			S3Key:       s3Key,
+			TickerS3Key: strings.TrimSpace(photo.TickerS3Key),
+			Position:    photo.Position,
+		})
+
+		for idx, post := range r.posts {
+			if post.ID != photo.PostID {
+				continue
+			}
+			post.HasImage = true
+			r.posts[idx] = post
+			break
+		}
+	}
+	return nil
 }
 
 func (r *InMemory) nextPostIDLocked() int64 {

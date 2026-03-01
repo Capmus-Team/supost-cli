@@ -14,7 +14,9 @@ type mockPostCreateSubmitRepo struct {
 	subcategories []domain.Subcategory
 	submission    domain.PostCreateSubmission
 	persisted     domain.PostCreatePersisted
+	savedPhotos   []domain.PostCreateSavedPhoto
 	createCalled  bool
+	saveCalled    bool
 }
 
 func (m *mockPostCreateSubmitRepo) ListCategories(_ context.Context) ([]domain.Category, error) {
@@ -40,6 +42,12 @@ func (m *mockPostCreateSubmitRepo) CreatePendingPost(_ context.Context, submissi
 	return m.persisted, nil
 }
 
+func (m *mockPostCreateSubmitRepo) SavePostPhotos(_ context.Context, photos []domain.PostCreateSavedPhoto) error {
+	m.saveCalled = true
+	m.savedPhotos = append([]domain.PostCreateSavedPhoto(nil), photos...)
+	return nil
+}
+
 type mockPublishSender struct {
 	last domain.PublishEmailMessage
 	sent bool
@@ -49,6 +57,20 @@ func (m *mockPublishSender) SendPublishEmail(_ context.Context, msg domain.Publi
 	m.last = msg
 	m.sent = true
 	return nil
+}
+
+type mockPostCreatePhotoUploader struct {
+	uploads []domain.PostCreatePhotoUpload
+}
+
+func (m *mockPostCreatePhotoUploader) UploadPostPhoto(_ context.Context, postID int64, photo domain.PostCreatePhotoUpload) (domain.PostCreateSavedPhoto, error) {
+	m.uploads = append(m.uploads, photo)
+	return domain.PostCreateSavedPhoto{
+		PostID:      postID,
+		S3Key:       "v2/posts/130031999/photo.jpg",
+		TickerS3Key: "",
+		Position:    photo.Position,
+	}, nil
 }
 
 func TestPostCreateService_Submit_DryRunDoesNotPersistOrSend(t *testing.T) {
@@ -69,7 +91,7 @@ func TestPostCreateService_Submit_DryRunDoesNotPersistOrSend(t *testing.T) {
 		Email:         "wientjes@alumni.stanford.edu",
 		Price:         100,
 		PriceProvided: true,
-	}, true, "https://supost.com", "response@mg.supost.com", sender)
+	}, true, "https://supost.com", "response@mg.supost.com", sender, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -113,7 +135,7 @@ func TestPostCreateService_Submit_PersistsAndSends(t *testing.T) {
 		IP:            "203.0.113.10",
 		Price:         100,
 		PriceProvided: true,
-	}, false, "https://supost.com", "response@mg.supost.com", sender)
+	}, false, "https://supost.com", "response@mg.supost.com", sender, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -155,7 +177,7 @@ func TestPostCreateService_Submit_InvalidEmailRejected(t *testing.T) {
 		Email:         "user@gmail.com",
 		Price:         100,
 		PriceProvided: true,
-	}, false, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
+	}, false, "https://supost.com", "response@mg.supost.com", &mockPublishSender{}, nil)
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -185,7 +207,7 @@ func TestPostCreateService_Submit_InvalidIPRejected(t *testing.T) {
 		IP:            "not-an-ip",
 		Price:         100,
 		PriceProvided: true,
-	}, false, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
+	}, false, "https://supost.com", "response@mg.supost.com", &mockPublishSender{}, nil)
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -211,7 +233,7 @@ func TestPostCreateService_Submit_StanfordSubdomainAccepted(t *testing.T) {
 		Email:         "wientjes@cs.stanford.edu",
 		Price:         100,
 		PriceProvided: true,
-	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{}, nil)
 	if err != nil {
 		t.Fatalf("expected cs.stanford.edu to pass validation, got %v", err)
 	}
@@ -232,7 +254,7 @@ func TestPostCreateService_Submit_PriceRequiredForForSale(t *testing.T) {
 		Name:          "Red bike for sale",
 		Body:          "Pick up on campus.",
 		Email:         "wientjes@alumni.stanford.edu",
-	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{}, nil)
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -258,7 +280,7 @@ func TestPostCreateService_Submit_PriceForbiddenForPersonals(t *testing.T) {
 		Email:         "wientjes@cs.stanford.edu",
 		Price:         10,
 		PriceProvided: true,
-	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{}, nil)
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -288,7 +310,7 @@ func TestPostCreateService_Submit_PriceForbiddenBeforeSubcategoryMismatch(t *tes
 		Email:         "wientjes@alumni.stanford.edu",
 		Price:         105,
 		PriceProvided: true,
-	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{}, nil)
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -316,7 +338,7 @@ func TestPostCreateService_Submit_SubcategoryMismatchWithoutPrice(t *testing.T) 
 		Name:          "Yellow Orange bike for sale",
 		Body:          "Pick up on campus.",
 		Email:         "wientjes@alumni.stanford.edu",
-	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{})
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{}, nil)
 	if err == nil {
 		t.Fatalf("expected subcategory mismatch error")
 	}
@@ -345,7 +367,7 @@ func TestPostCreateService_Submit_PersonalsNoPriceAllowed(t *testing.T) {
 		Name:          "Missed connection",
 		Body:          "Saw you at Coupa.",
 		Email:         "wientjes@cs.stanford.edu",
-	}, false, "https://supost.com", "response@mg.supost.com", sender)
+	}, false, "https://supost.com", "response@mg.supost.com", sender, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -354,5 +376,85 @@ func TestPostCreateService_Submit_PersonalsNoPriceAllowed(t *testing.T) {
 	}
 	if repo.submission.PriceProvided {
 		t.Fatalf("expected personals submit with no price")
+	}
+}
+
+func TestPostCreateService_Submit_WithPhotosUploadsAndPersistsMetadata(t *testing.T) {
+	repo := &mockPostCreateSubmitRepo{
+		categories: []domain.Category{{ID: 5, Name: "for sale/wanted", ShortName: "for sale"}},
+		subcategories: []domain.Subcategory{
+			{ID: 14, CategoryID: 5, Name: "furniture"},
+		},
+		persisted: domain.PostCreatePersisted{
+			PostID:      130031999,
+			AccessToken: "abcdef",
+			PostedAt:    time.Now(),
+		},
+	}
+	sender := &mockPublishSender{}
+	uploader := &mockPostCreatePhotoUploader{}
+	svc := NewPostCreateService(repo)
+
+	result, err := svc.Submit(context.Background(), domain.PostCreateSubmission{
+		CategoryID:    5,
+		SubcategoryID: 14,
+		Name:          "Red bike for sale",
+		Body:          "Pick up on campus.",
+		Email:         "wientjes@alumni.stanford.edu",
+		Price:         100,
+		PriceProvided: true,
+		Photos: []domain.PostCreatePhotoUpload{
+			{FileName: "photo-1.jpg", ContentType: "image/jpeg", Content: []byte("image-1")},
+			{FileName: "photo-2.png", ContentType: "image/png", Content: []byte("image-2")},
+		},
+	}, false, "https://supost.com", "response@mg.supost.com", sender, uploader)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(uploader.uploads) != 2 {
+		t.Fatalf("expected 2 uploads, got %d", len(uploader.uploads))
+	}
+	if !repo.saveCalled {
+		t.Fatalf("expected photo metadata to be persisted")
+	}
+	if len(repo.savedPhotos) != 2 {
+		t.Fatalf("expected 2 saved photo rows, got %d", len(repo.savedPhotos))
+	}
+	if result.PhotoCount != 2 {
+		t.Fatalf("expected photo_count=2, got %d", result.PhotoCount)
+	}
+}
+
+func TestPostCreateService_Submit_TooManyPhotosRejected(t *testing.T) {
+	repo := &mockPostCreateSubmitRepo{
+		categories: []domain.Category{{ID: 5, Name: "for sale/wanted", ShortName: "for sale"}},
+		subcategories: []domain.Subcategory{
+			{ID: 14, CategoryID: 5, Name: "furniture"},
+		},
+	}
+	svc := NewPostCreateService(repo)
+
+	_, err := svc.Submit(context.Background(), domain.PostCreateSubmission{
+		CategoryID:    5,
+		SubcategoryID: 14,
+		Name:          "Red bike for sale",
+		Body:          "Pick up on campus.",
+		Email:         "wientjes@alumni.stanford.edu",
+		Price:         100,
+		PriceProvided: true,
+		Photos: []domain.PostCreatePhotoUpload{
+			{FileName: "1.jpg", Content: []byte("1")},
+			{FileName: "2.jpg", Content: []byte("2")},
+			{FileName: "3.jpg", Content: []byte("3")},
+			{FileName: "4.jpg", Content: []byte("4")},
+			{FileName: "5.jpg", Content: []byte("5")},
+		},
+	}, true, "https://supost.com", "response@mg.supost.com", &mockPublishSender{}, nil)
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "At most 4 photos are allowed.") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

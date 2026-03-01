@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Capmus-Team/supost-cli/internal/domain"
@@ -87,4 +88,64 @@ RETURNING
 		return domain.PostCreatePersisted{}, fmt.Errorf("inserting post: %w", err)
 	}
 	return persisted, nil
+}
+
+// SavePostPhotos inserts uploaded photo metadata into public.photo.
+func (r *Postgres) SavePostPhotos(ctx context.Context, photos []domain.PostCreateSavedPhoto) error {
+	if len(photos) == 0 {
+		return nil
+	}
+
+	const query = `
+INSERT INTO public.photo (
+	post_id,
+	s3_key,
+	ticker_s3_key,
+	position,
+	created_at,
+	updated_at
+) VALUES (
+	$1,
+	$2,
+	$3,
+	$4,
+	now(),
+	now()
+)
+ON CONFLICT (post_id, position) DO UPDATE SET
+	s3_key = EXCLUDED.s3_key,
+	ticker_s3_key = EXCLUDED.ticker_s3_key,
+	updated_at = now()
+`
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("starting photo transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	for _, photo := range photos {
+		tickerKey := strings.TrimSpace(photo.TickerS3Key)
+		var tickerValue any
+		if tickerKey != "" {
+			tickerValue = tickerKey
+		}
+		if _, err := tx.ExecContext(
+			ctx,
+			query,
+			photo.PostID,
+			strings.TrimSpace(photo.S3Key),
+			tickerValue,
+			photo.Position,
+		); err != nil {
+			return fmt.Errorf("inserting photo metadata for post %d at position %d: %w", photo.PostID, photo.Position, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing photo transaction: %w", err)
+	}
+	return nil
 }

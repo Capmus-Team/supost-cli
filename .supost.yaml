@@ -1,0 +1,6 @@
+# Configuration for SUPost that is not secret. Defaults.
+aws:
+  region: us-east-1
+  bucket: supost-prod
+  prefix: v2
+  # profile: supost-v2  # references ~/.aws/credentials

@@ -25,6 +25,10 @@ func (m *mockPostCreateRepo) CreatePendingPost(_ context.Context, _ domain.PostC
 	return domain.PostCreatePersisted{}, nil
 }
 
+func (m *mockPostCreateRepo) SavePostPhotos(_ context.Context, _ []domain.PostCreateSavedPhoto) error {
+	return nil
+}
+
 func TestPostCreateService_BuildPage_ChooseCategory(t *testing.T) {
 	svc := NewPostCreateService(&mockPostCreateRepo{
 		categories: []domain.Category{

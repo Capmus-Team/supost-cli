@@ -28,7 +28,8 @@ SELECT
 		COALESCE(p.image_source1, '') <> '' OR
 		COALESCE(p.image_source2, '') <> '' OR
 		COALESCE(p.image_source3, '') <> '' OR
-		COALESCE(p.image_source4, '') <> ''
+		COALESCE(p.image_source4, '') <> '' OR
+		EXISTS (SELECT 1 FROM public.photo ph WHERE ph.post_id = p.id)
 	) AS has_image,
 	COALESCE(p.created_at, now()) AS created_at,
 	COALESCE(p.updated_at, p.created_at, now()) AS updated_at

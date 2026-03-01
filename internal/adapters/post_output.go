@@ -190,19 +190,30 @@ func renderPostPhotoGridRows(post domain.Post, now time.Time, width int) []strin
 }
 
 func postPhotoQuadrantURLs(post domain.Post, now time.Time) [4]string {
-	flags := [4]bool{
-		strings.TrimSpace(post.Photo1File) != "" || strings.TrimSpace(post.ImageSource1) != "",
-		strings.TrimSpace(post.Photo2File) != "" || strings.TrimSpace(post.ImageSource2) != "",
-		strings.TrimSpace(post.Photo3File) != "" || strings.TrimSpace(post.ImageSource3) != "",
-		strings.TrimSpace(post.Photo4File) != "" || strings.TrimSpace(post.ImageSource4) != "",
+	s3Keys := [4]string{
+		strings.TrimSpace(post.ImageSource1),
+		strings.TrimSpace(post.ImageSource2),
+		strings.TrimSpace(post.ImageSource3),
+		strings.TrimSpace(post.ImageSource4),
 	}
-	if post.HasImage && !flags[0] && !flags[1] && !flags[2] && !flags[3] {
-		flags[0] = true
+	legacyFiles := [4]string{
+		strings.TrimSpace(post.Photo1File),
+		strings.TrimSpace(post.Photo2File),
+		strings.TrimSpace(post.Photo3File),
+		strings.TrimSpace(post.Photo4File),
 	}
 
 	var urls [4]string
-	for i := 0; i < len(flags); i++ {
-		if flags[i] {
+	for i := 0; i < len(urls); i++ {
+		if resolved := formatPostPhotoS3KeyURL(s3Keys[i], post, now); resolved != "" {
+			urls[i] = resolved
+			continue
+		}
+		if resolved := formatPostPhotoS3KeyURL(legacyFiles[i], post, now); resolved != "" {
+			urls[i] = resolved
+			continue
+		}
+		if legacyFiles[i] != "" {
 			urls[i] = formatPostPhotoURL(post, i, now)
 		}
 	}
@@ -210,17 +221,35 @@ func postPhotoQuadrantURLs(post domain.Post, now time.Time) [4]string {
 }
 
 func formatPostPhotoURL(post domain.Post, index int, now time.Time) string {
-	timestamp := post.TimePosted
-	if timestamp <= 0 {
-		if ts := postTimestamp(post); !ts.IsZero() {
-			timestamp = ts.Unix()
-		}
-	}
-	if timestamp <= 0 {
-		timestamp = now.Unix()
-	}
 	suffix := rune('a' + index)
-	return fmt.Sprintf("https://supost-prod.s3.amazonaws.com/posts/%d/post_%d%c?%d", post.ID, post.ID, suffix, timestamp)
+	return fmt.Sprintf("https://supost-prod.s3.amazonaws.com/posts/%d/post_%d%c?%d", post.ID, post.ID, suffix, postPhotoTimestampUnix(post, now))
+}
+
+func formatPostPhotoS3KeyURL(value string, post domain.Post, now time.Time) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasPrefix(trimmed, "https://") || strings.HasPrefix(trimmed, "http://") {
+		return trimmed
+	}
+
+	key := strings.TrimLeft(trimmed, "/")
+	if !strings.Contains(key, "/") {
+		return ""
+	}
+	return fmt.Sprintf("https://supost-prod.s3.amazonaws.com/%s?%d", key, postPhotoTimestampUnix(post, now))
+}
+
+func postPhotoTimestampUnix(post domain.Post, now time.Time) int64 {
+	timestamp := post.TimePosted
+	if timestamp > 0 {
+		return timestamp
+	}
+	if ts := postTimestamp(post); !ts.IsZero() {
+		return ts.Unix()
+	}
+	return now.Unix()
 }
 
 func formatPostPageDate(post domain.Post) string {

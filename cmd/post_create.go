@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/Capmus-Team/supost-cli/internal/adapters"
@@ -75,9 +78,17 @@ var postCreateCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("reading ip flag: %w", err)
 			}
+			photoPaths, err := cmd.Flags().GetStringArray("photo")
+			if err != nil {
+				return fmt.Errorf("reading photo flag: %w", err)
+			}
 			dryRun, err := cmd.Flags().GetBool("dry-run")
 			if err != nil {
 				return fmt.Errorf("reading dry-run flag: %w", err)
+			}
+			photos, err := loadPostCreatePhotos(photoPaths)
+			if err != nil {
+				return err
 			}
 
 			input := domain.PostCreateSubmission{
@@ -89,6 +100,7 @@ var postCreateCmd = &cobra.Command{
 				Price:         price,
 				PriceProvided: cmd.Flags().Changed("price"),
 				IP:            strings.TrimSpace(ip),
+				Photos:        photos,
 			}
 
 			var sender service.PostCreateEmailSender
@@ -106,6 +118,21 @@ var postCreateCmd = &cobra.Command{
 				sender = mailgunSender
 			}
 
+			var photoUploader service.PostCreatePhotoUploader
+			if !dryRun && len(photos) > 0 {
+				s3Uploader, err := adapters.NewS3PostPhotoUploader(
+					cmd.Context(),
+					cfg.S3PhotoRegion,
+					cfg.S3PhotoBucket,
+					cfg.S3PhotoPrefix,
+					cfg.S3PhotoAWSProfile,
+				)
+				if err != nil {
+					return fmt.Errorf("configuring s3 photo uploader: %w", err)
+				}
+				photoUploader = s3Uploader
+			}
+
 			result, err := svc.Submit(
 				cmd.Context(),
 				input,
@@ -113,6 +140,7 @@ var postCreateCmd = &cobra.Command{
 				cfg.SupostBaseURL,
 				cfg.MailgunFromEmail,
 				sender,
+				photoUploader,
 			)
 			if err != nil {
 				return fmt.Errorf("submitting post: %w", err)
@@ -138,6 +166,7 @@ func init() {
 	postCreateCmd.Flags().String("email", "", "poster email")
 	postCreateCmd.Flags().Float64("price", 0, "post price")
 	postCreateCmd.Flags().String("ip", "", "poster IP address (optional)")
+	postCreateCmd.Flags().StringArray("photo", nil, "photo file path (repeat up to 4 times)")
 	postCreateCmd.Flags().Bool("dry-run", false, "validate and render publish email without inserting/sending")
 }
 
@@ -165,6 +194,40 @@ func postCreateSubmitRequested(cmd *cobra.Command) bool {
 	return cmd.Flags().Changed("name") ||
 		cmd.Flags().Changed("body") ||
 		cmd.Flags().Changed("email") ||
+		cmd.Flags().Changed("photo") ||
 		cmd.Flags().Changed("price") ||
 		cmd.Flags().Changed("dry-run")
+}
+
+func loadPostCreatePhotos(photoPaths []string) ([]domain.PostCreatePhotoUpload, error) {
+	if len(photoPaths) == 0 {
+		return nil, nil
+	}
+	if len(photoPaths) > 4 {
+		return nil, fmt.Errorf("at most 4 --photo flags are allowed")
+	}
+
+	photos := make([]domain.PostCreatePhotoUpload, 0, len(photoPaths))
+	for idx, path := range photoPaths {
+		trimmedPath := strings.TrimSpace(path)
+		if trimmedPath == "" {
+			return nil, fmt.Errorf("photo path at position %d is blank", idx+1)
+		}
+		content, err := os.ReadFile(trimmedPath)
+		if err != nil {
+			return nil, fmt.Errorf("reading photo %q: %w", trimmedPath, err)
+		}
+		if len(content) == 0 {
+			return nil, fmt.Errorf("photo %q is empty", trimmedPath)
+		}
+
+		contentType := http.DetectContentType(content)
+		photos = append(photos, domain.PostCreatePhotoUpload{
+			FileName:    filepath.Base(trimmedPath),
+			ContentType: contentType,
+			Content:     content,
+			Position:    idx,
+		})
+	}
+	return photos, nil
 }

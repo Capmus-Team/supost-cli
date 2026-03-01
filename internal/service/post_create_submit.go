@@ -32,6 +32,11 @@ type PostCreateEmailSender interface {
 	SendPublishEmail(ctx context.Context, msg domain.PublishEmailMessage) error
 }
 
+// PostCreatePhotoUploader defines photo upload side effects where consumed.
+type PostCreatePhotoUploader interface {
+	UploadPostPhoto(ctx context.Context, postID int64, photo domain.PostCreatePhotoUpload) (domain.PostCreateSavedPhoto, error)
+}
+
 // Submit creates a post, persists it, and sends a publish-link email.
 func (s *PostCreateService) Submit(
 	ctx context.Context,
@@ -40,6 +45,7 @@ func (s *PostCreateService) Submit(
 	baseURL string,
 	fromEmail string,
 	sender PostCreateEmailSender,
+	photoUploader PostCreatePhotoUploader,
 ) (domain.PostCreateSubmitResult, error) {
 	normalized, err := s.validateSubmissionInput(ctx, input)
 	if err != nil {
@@ -67,6 +73,7 @@ func (s *PostCreateService) Submit(
 		PostedAt:    normalized.PostedAt,
 		EmailTo:     normalized.Email,
 		EmailSent:   false,
+		PhotoCount:  len(normalized.Photos),
 		Subject:     subject,
 		Body:        body,
 	}
@@ -96,6 +103,35 @@ func (s *PostCreateService) Submit(
 		result.Subject, result.Body = buildPublishEmailContent(normalized.Name, result.PublishURL, result.PostedAt)
 	}
 
+	if len(normalized.Photos) > 0 {
+		if photoUploader == nil {
+			return domain.PostCreateSubmitResult{}, fmt.Errorf("photo uploader is required")
+		}
+		if result.PostID <= 0 {
+			return domain.PostCreateSubmitResult{}, fmt.Errorf("invalid persisted post id for photo upload")
+		}
+
+		savedPhotos := make([]domain.PostCreateSavedPhoto, 0, len(normalized.Photos))
+		for _, photo := range normalized.Photos {
+			savedPhoto, err := photoUploader.UploadPostPhoto(ctx, result.PostID, photo)
+			if err != nil {
+				return domain.PostCreateSubmitResult{}, fmt.Errorf("uploading photo at position %d: %w", photo.Position, err)
+			}
+			savedPhoto.PostID = result.PostID
+			savedPhoto.Position = photo.Position
+			savedPhotos = append(savedPhotos, savedPhoto)
+		}
+
+		if err := s.repo.SavePostPhotos(ctx, savedPhotos); err != nil {
+			return domain.PostCreateSubmitResult{}, fmt.Errorf("saving post photos: %w", err)
+		}
+
+		result.PhotoS3Keys = make([]string, 0, len(savedPhotos))
+		for _, savedPhoto := range savedPhotos {
+			result.PhotoS3Keys = append(result.PhotoS3Keys, savedPhoto.S3Key)
+		}
+	}
+
 	msg := domain.PublishEmailMessage{
 		From:    strings.TrimSpace(fromEmail),
 		To:      result.EmailTo,
@@ -115,8 +151,9 @@ func (s *PostCreateService) validateSubmissionInput(ctx context.Context, input d
 	normalized.Body = strings.TrimSpace(input.Body)
 	normalized.Email = strings.ToLower(strings.TrimSpace(input.Email))
 	normalized.IP = strings.TrimSpace(input.IP)
+	normalized.Photos = normalizePostCreatePhotos(input.Photos)
 
-	problems := make([]string, 0, 8)
+	problems := make([]string, 0, 12)
 	if normalized.CategoryID <= 0 {
 		problems = append(problems, "category is required")
 	}
@@ -148,6 +185,14 @@ func (s *PostCreateService) validateSubmissionInput(ctx context.Context, input d
 	} else if normalized.PriceProvided {
 		problems = append(problems, "Price is not allowed for this category.")
 	}
+	if len(normalized.Photos) > 4 {
+		problems = append(problems, "At most 4 photos are allowed.")
+	}
+	for _, photo := range normalized.Photos {
+		if len(photo.Content) == 0 {
+			problems = append(problems, fmt.Sprintf("Photo at position %d is empty.", photo.Position))
+		}
+	}
 
 	if len(problems) > 0 {
 		return domain.PostCreateSubmission{}, fmt.Errorf("%s", formatPostCreateValidationErrors(problems))
@@ -161,6 +206,23 @@ func (s *PostCreateService) validateSubmissionInput(ctx context.Context, input d
 		return domain.PostCreateSubmission{}, fmt.Errorf("invalid category/subcategory combination")
 	}
 	return normalized, nil
+}
+
+func normalizePostCreatePhotos(photos []domain.PostCreatePhotoUpload) []domain.PostCreatePhotoUpload {
+	if len(photos) == 0 {
+		return nil
+	}
+
+	normalized := make([]domain.PostCreatePhotoUpload, 0, len(photos))
+	for idx, photo := range photos {
+		normalized = append(normalized, domain.PostCreatePhotoUpload{
+			FileName:    strings.TrimSpace(photo.FileName),
+			ContentType: strings.TrimSpace(photo.ContentType),
+			Content:     append([]byte(nil), photo.Content...),
+			Position:    idx,
+		})
+	}
+	return normalized
 }
 
 func formatPostCreateValidationErrors(problems []string) string {

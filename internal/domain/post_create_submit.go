@@ -4,16 +4,33 @@ import "time"
 
 // PostCreateSubmission is the validated input payload for creating a post.
 type PostCreateSubmission struct {
-	CategoryID    int64     `json:"category_id" db:"category_id"`
-	SubcategoryID int64     `json:"subcategory_id" db:"subcategory_id"`
-	Name          string    `json:"name" db:"name"`
-	Body          string    `json:"body" db:"body"`
-	Email         string    `json:"email" db:"email"`
-	IP            string    `json:"ip" db:"ip"`
-	Price         float64   `json:"price" db:"price"`
-	PriceProvided bool      `json:"price_provided" db:"-"`
-	AccessToken   string    `json:"access_token" db:"access_token"`
-	PostedAt      time.Time `json:"posted_at" db:"time_posted_at"`
+	CategoryID    int64                   `json:"category_id" db:"category_id"`
+	SubcategoryID int64                   `json:"subcategory_id" db:"subcategory_id"`
+	Name          string                  `json:"name" db:"name"`
+	Body          string                  `json:"body" db:"body"`
+	Email         string                  `json:"email" db:"email"`
+	IP            string                  `json:"ip" db:"ip"`
+	Price         float64                 `json:"price" db:"price"`
+	PriceProvided bool                    `json:"price_provided" db:"-"`
+	Photos        []PostCreatePhotoUpload `json:"photos" db:"-"`
+	AccessToken   string                  `json:"access_token" db:"access_token"`
+	PostedAt      time.Time               `json:"posted_at" db:"time_posted_at"`
+}
+
+// PostCreatePhotoUpload is a single user-supplied photo payload.
+type PostCreatePhotoUpload struct {
+	FileName    string `json:"file_name" db:"-"`
+	ContentType string `json:"content_type" db:"-"`
+	Content     []byte `json:"content" db:"-"`
+	Position    int    `json:"position" db:"position"`
+}
+
+// PostCreateSavedPhoto is the persisted photo row payload for public.photo.
+type PostCreateSavedPhoto struct {
+	PostID      int64  `json:"post_id" db:"post_id"`
+	S3Key       string `json:"s3_key" db:"s3_key"`
+	TickerS3Key string `json:"ticker_s3_key" db:"ticker_s3_key"`
+	Position    int    `json:"position" db:"position"`
 }
 
 // PostCreatePersisted is the DB return payload after insert.
@@ -40,6 +57,8 @@ type PostCreateSubmitResult struct {
 	PostedAt    time.Time `json:"posted_at" db:"-"`
 	EmailTo     string    `json:"email_to" db:"-"`
 	EmailSent   bool      `json:"email_sent" db:"-"`
+	PhotoCount  int       `json:"photo_count" db:"-"`
+	PhotoS3Keys []string  `json:"photo_s3_keys" db:"-"`
 	Subject     string    `json:"subject" db:"-"`
 	Body        string    `json:"body" db:"-"`
 }

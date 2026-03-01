@@ -87,7 +87,7 @@ func TestCommandReference_PostCreateFlags(t *testing.T) {
 	post := mustCommandByName(t, rootCmd, "post")
 	create := mustCommandByName(t, post, "create")
 
-	for _, flagName := range []string{"category", "subcategory", "name", "body", "email", "price", "ip", "dry-run"} {
+	for _, flagName := range []string{"category", "subcategory", "name", "body", "email", "price", "ip", "photo", "dry-run"} {
 		if create.Flags().Lookup(flagName) == nil {
 			t.Fatalf("expected post create flag %q", flagName)
 		}

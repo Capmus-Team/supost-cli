@@ -41,6 +41,21 @@ func TestPostPhotoQuadrantURLs_MapsThirdPhotoToBottomLeft(t *testing.T) {
 	}
 }
 
+func TestPostPhotoQuadrantURLs_UsesS3KeyWhenPresent(t *testing.T) {
+	now := time.Date(2026, time.February, 27, 14, 25, 0, 0, time.UTC)
+	post := domain.Post{
+		ID:           130031961,
+		TimePosted:   1772238444,
+		ImageSource1: "v2/posts/130031961/abcd-efgh.jpg",
+	}
+
+	urls := postPhotoQuadrantURLs(post, now)
+	want := "https://supost-prod.s3.amazonaws.com/v2/posts/130031961/abcd-efgh.jpg?1772238444"
+	if urls[0] != want {
+		t.Fatalf("got %q, want %q", urls[0], want)
+	}
+}
+
 func TestRenderPostPage_ContainsHeaderBodyAndPosterBox(t *testing.T) {
 	var out bytes.Buffer
 	post := domain.Post{

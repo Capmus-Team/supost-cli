@@ -20,6 +20,7 @@ import (
 type InMemory struct {
 	mu            sync.RWMutex
 	posts         []domain.Post
+	photos        []domain.PostCreateSavedPhoto
 	messages      []domain.Message
 	categories    []domain.Category
 	subcategories []domain.Subcategory
@@ -29,6 +30,7 @@ type InMemory struct {
 func NewInMemory() *InMemory {
 	repo := &InMemory{
 		posts:         make([]domain.Post, 0),
+		photos:        make([]domain.PostCreateSavedPhoto, 0),
 		messages:      make([]domain.Message, 0),
 		categories:    make([]domain.Category, 0),
 		subcategories: make([]domain.Subcategory, 0),

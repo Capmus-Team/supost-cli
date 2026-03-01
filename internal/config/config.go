@@ -24,6 +24,12 @@ type Config struct {
 	MailgunAPIBase     string        `json:"mailgun_api_base"`
 	MailgunSendTimeout time.Duration `json:"mailgun_send_timeout"`
 	SupostBaseURL      string        `json:"supost_base_url"`
+
+	// S3 photo upload settings (used by post create when --photo is provided)
+	S3PhotoBucket     string `json:"s3_photo_bucket"`
+	S3PhotoPrefix     string `json:"s3_photo_prefix"`
+	S3PhotoRegion     string `json:"s3_photo_region"`
+	S3PhotoAWSProfile string `json:"s3_photo_aws_profile"`
 }
 
 // Load reads configuration from viper (merges file + env + flags).
@@ -41,5 +47,9 @@ func Load() (*Config, error) {
 		MailgunAPIBase:     viper.GetString("mailgun_api_base"),
 		MailgunSendTimeout: viper.GetDuration("mailgun_send_timeout"),
 		SupostBaseURL:      viper.GetString("supost_base_url"),
+		S3PhotoBucket:      viper.GetString("s3_photo_bucket"),
+		S3PhotoPrefix:      viper.GetString("s3_photo_prefix"),
+		S3PhotoRegion:      viper.GetString("s3_photo_region"),
+		S3PhotoAWSProfile:  viper.GetString("s3_photo_aws_profile"),
 	}, nil
 }

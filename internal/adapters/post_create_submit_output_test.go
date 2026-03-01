@@ -13,6 +13,7 @@ func TestRenderPostCreateSubmitResult(t *testing.T) {
 	result := domain.PostCreateSubmitResult{
 		DryRun:     true,
 		PostID:     130031999,
+		PhotoCount: 2,
 		PublishURL: "https://supost.com/post/publish/token",
 		EmailTo:    "wientjes@alumni.stanford.edu",
 		EmailSent:  false,
@@ -27,6 +28,7 @@ func TestRenderPostCreateSubmitResult(t *testing.T) {
 	for _, needle := range []string{
 		"[DRY RUN] post create",
 		"post_id: 130031999",
+		"photo_count: 2",
 		"publish_url: https://supost.com/post/publish/token",
 		"email_to: wientjes@alumni.stanford.edu",
 		"subject: SUpost - Publish your post! Red bike for sale",

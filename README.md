@@ -222,8 +222,7 @@ supost-cli/
 │   │   └── home_cache.go
 │   └── util/util.go
 │
-├── migrations/                      # SQL schema (Supabase-ready)
-├── supabase/migrations/             # Supabase migration snapshots
+├── supabase/migrations/             # SQL schema + migration history (Supabase source of truth)
 ├── configs/config.yaml.example
 ├── testdata/seed/                   # category + subcategory seed rows
 ├── docs/                            # implementation notes
@@ -308,7 +307,7 @@ make clean
 
 ## Migration to Production (Next.js + Supabase)
 
-1. **Schema** → Apply `migrations/*.sql` to Supabase, uncomment RLS policies
+1. **Schema** → Apply `supabase/migrations/*.sql` to Supabase, uncomment RLS policies
 2. **Types** → Translate `internal/domain/*.go` structs to TypeScript interfaces (`json` tags = field names)
 3. **Logic** → Port `internal/service/*.go` to Next.js API routes (nearly 1:1)
 4. **Data access** → Replace Go repository with Supabase JS SDK

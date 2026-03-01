@@ -39,7 +39,7 @@ stack will be:
    If a service function can't be explained as "take this input, validate,
    query, transform, return" — it's too coupled.
 
-4. **SQL migrations are the single source of schema truth.** The `migrations/`
+4. **SQL migrations are the single source of schema truth.** The `supabase/migrations/`
    directory defines every table. These same migrations (or their Supabase SQL
    editor equivalents) will create the production schema.
 
@@ -112,10 +112,10 @@ myapp/                              # repo root
 │   └── util/                       # small, stateless, pure helper functions
 │       └── strings.go
 │
-├── migrations/                     # SQL migrations — source of schema truth
-│   ├── 001_create_profiles.sql
-│   ├── 002_create_listings.sql
-│   └── README.md                   # notes on applying to Supabase
+├── supabase/
+│   └── migrations/                 # SQL migrations — source of schema truth
+│       ├── 20260227211639_remote_schema.sql
+│       └── 20260301001000_add_post_subcategory_fk.sql
 │
 ├── configs/                        # example config files (committed to repo)
 │   └── config.yaml.example
@@ -290,9 +290,9 @@ func (l *Listing) Validate() error {
 - If a helper is only used in one package, keep it in that package instead.
 - Guard against this becoming a dumping ground.
 
-### 2.5 migrations/ — SQL Schema (Supabase-Ready)
+### 2.5 supabase/migrations/ — SQL Schema (Supabase-Ready)
 
-- Each migration is a numbered `.sql` file: `001_create_profiles.sql`, `002_create_listings.sql`.
+- Each migration is a timestamped `.sql` file: `20260227211639_remote_schema.sql`, `20260301001000_add_post_subcategory_fk.sql`.
 - Migrations are the **single source of truth** for the database schema.
 - Write standard PostgreSQL. Supabase runs Postgres — these should work directly in the Supabase SQL editor.
 - Include Supabase-relevant features: `uuid` primary keys (using `gen_random_uuid()`), `timestamptz` for timestamps, RLS policy stubs as comments.
@@ -301,7 +301,7 @@ func (l *Listing) Validate() error {
 **Migration pattern:**
 
 ```sql
--- migrations/001_create_listings.sql
+-- supabase/migrations/20260301010000_create_listings.sql
 
 CREATE TABLE IF NOT EXISTS listings (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -470,7 +470,7 @@ These rules exist to prevent the structural decay that AI agents commonly cause.
 
 Follow this exact sequence. **Core first. Adapter second. CLI last.**
 
-1. **Migration** — If the feature needs a new table or column, write the SQL migration in `migrations/`. This is the source of truth.
+1. **Migration** — If the feature needs a new table or column, write the SQL migration in `supabase/migrations/`. This is the source of truth.
 2. **Domain types** — Add the struct to `internal/domain/` with `json` and `db` tags. It must mirror the migration schema exactly.
 3. **Core logic** — Write the business logic in `internal/service/`. Write unit tests using the in-memory repository. This code must work with zero knowledge of Cobra or the CLI.
 4. **Repository** — Add methods to `internal/repository/interfaces.go`. Implement in `inmemory.go` first (for immediate use), then optionally in `postgres.go`.
@@ -601,7 +601,7 @@ serve:
 	go run . serve
 
 migrate:
-	@for f in migrations/*.sql; do echo "psql $$DATABASE_URL -f $$f"; done
+	@echo "supabase db push --db-url \"$$DATABASE_URL\""
 
 clean:
 	rm -rf bin/ coverage.out
@@ -666,7 +666,7 @@ clean:
 | Call an external API / send email               | `internal/adapters/`                               |
 | Write a pure helper function                    | `internal/util/`                                   |
 | Render output (JSON, table, CSV)                | `internal/adapters/output.go`                      |
-| Add or change a database table                  | `migrations/NNN_description.sql`                   |
+| Add or change a database table                  | `supabase/migrations/<timestamp>_description.sql`  |
 | Add test fixtures                               | `testdata/`                                        |
 | Add seed data for development                   | `testdata/seed/`                                   |
 | Add an example config file                      | `configs/`                                         |
@@ -688,7 +688,7 @@ clean:
 
 When moving from this CLI prototype to the production Next.js + Supabase stack:
 
-1. **Schema** → Apply `migrations/*.sql` in the Supabase SQL editor or via Supabase CLI. Uncomment the RLS policies.
+1. **Schema** → Apply `supabase/migrations/*.sql` in the Supabase SQL editor or via Supabase CLI. Uncomment the RLS policies.
 2. **Domain types** → Translate `internal/domain/*.go` structs to TypeScript interfaces. The `json` tags define the field names exactly.
 3. **Service logic** → Port `internal/service/*.go` functions to Next.js API routes or server actions. The logic should transfer almost 1:1 since services are pure and framework-agnostic.
 4. **Repository layer** → Replace with Supabase JS SDK (`supabase.from('listings').select(...)`) or keep as raw SQL via Supabase's `rpc()`.

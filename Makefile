@@ -22,8 +22,8 @@ serve:
 	go run . serve
 
 migrate:
-	@echo "Apply migrations to your database:"
-	@for f in migrations/*.sql; do echo "  psql $$DATABASE_URL -f $$f"; done
+	@echo "Apply migrations to your database with Supabase CLI:"
+	@echo "  supabase db push --db-url \"$$DATABASE_URL\""
 
 clean:
 	rm -rf bin/ coverage.out
